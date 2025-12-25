@@ -1,0 +1,10 @@
+pip install opencv-python
+pip install face-recognition
+pip install pytesseract
+pip install Pillow
+pip install numpy
+brew install tesseract
+pip install git+https://github.com/ageitgey/face_recognition_models
+pip install setuptools
+pip install deepface
+pip install tf-keras
