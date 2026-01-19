@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liveness Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.11.0"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #video {
+            width: 100%;
+            display: block;
+            transform:none !important;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .face-guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 250px;
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+        }
+
+        .instruction-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            max-width: 80%;
+            z-index: 10;
+        }
+
+        .challenge-list {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .challenge-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .challenge-item.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .challenge-icon {
+            font-size: 24px;
+            width: 30px;
+            text-align: center;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎭 Liveness Detection</h1>
+            <p>Verify you're a real person</p>
+        </div>
+
+        <div class="content">
+            <div id="loadingScreen" class="loading">
+                <div class="spinner"></div>
+                <p>Loading AI models...</p>
+            </div>
+
+            <div id="mainScreen" class="hidden">
+                <div class="video-container">
+                    <video id="video" autoplay playsinline></video>
+                    <div class="overlay">
+                        <div class="face-guide"></div>
+                        <div class="instruction-box" id="instruction">Position your face in the oval</div>
+                    </div>
+                </div>
+
+                <div class="challenge-list">
+                    <div class="challenge-item" id="challenge-center">
+                        <span class="challenge-icon">👤</span>
+                        <span>Face detected</span>
+                    </div>
+                    <div class="challenge-item" id="challenge-left">
+                        <span class="challenge-icon">⬅️</span>
+                        <span>Turn head LEFT</span>
+                    </div>
+                    <div class="challenge-item" id="challenge-right">
+                        <span class="challenge-icon">➡️</span>
+                        <span>Turn head RIGHT</span>
+                    </div>
+                    <div class="challenge-item" id="challenge-smile">
+                        <span class="challenge-icon">😊</span>
+                        <span>Smile</span>
+                    </div>
+                </div>
+
+                <div id="statusMessage" class="status-message info">
+                    Follow the instructions to complete verification
+                </div>
+
+                <button id="startBtn" class="btn btn-primary" onclick="startDetection()">
+                    Start Liveness Check
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+
+        let video;
+        let model;
+        let detectionInterval;
+        let challenges = {
+            center: false,
+            left: false,
+            right: false,
+            smile: false
+        };
+        let currentInstruction = 'center';
+        const instructions = {
+            center: 'Look at the center',
+            left: 'Turn your head LEFT ⬅️',
+            right: 'Turn your head RIGHT ➡️',
+            smile: 'SMILE! 😊'
+        };
+
+        async function init() {
+              try {
+                video = document.getElementById('video');
+
+                // Set TF backend (faster + stable)
+                await tf.setBackend('webgl');
+                await tf.ready();
+
+                // ✅ NEW: createDetector API
+                model = await faceLandmarksDetection.createDetector(
+                  faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+                  {
+                    runtime: 'mediapipe',
+                    maxFaces: 1,
+                    refineLandmarks: true,
+                    solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh'
+                  }
+                );
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                  audio: false,
+                  video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+
+                video.srcObject = stream;
+
+                // make sure video actually starts
+                await video.play();
+
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('mainScreen').classList.remove('hidden');
+
+              } catch (error) {
+                showStatus('error', `Init failed: ${error.message}`);
+                console.error('Init error:', error);
+              }
+        }
+
+
+        async function startDetection() {
+            document.getElementById('startBtn').disabled = true;
+            showStatus('info', 'Starting liveness detection...');
+
+            // Notify backend that liveness is starting
+            try {
+                await fetch('/start-liveness/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (e) {
+                console.log('Backend notification failed:', e);
+            }
+
+            // Reset challenges
+            challenges = { center: false, left: false, right: false, smile: false };
+            currentInstruction = 'center';
+            updateInstruction();
+
+            // Start detection loop
+            detectionInterval = setInterval(detectFace, 500);
+        }
+
+        async function detectFace() {
+            if (!model || !video.readyState !== 4) return;
+
+            try {
+                const predictions = await model.estimateFaces({ input: video });
+
+                if (predictions.length > 0) {
+                    const face = predictions[0];
+                    analyzeFace(face);
+                }
+            } catch (error) {
+                console.error('Detection error:', error);
+            }
+        }
+
+        function analyzeFace(face) {
+            const keypoints = face.scaledMesh;
+
+            // Get key facial landmarks
+            const noseTip = keypoints[1];
+            const leftEye = keypoints[33];
+            const rightEye = keypoints[263];
+            const leftMouth = keypoints[61];
+            const rightMouth = keypoints[291];
+
+            // Calculate face orientation
+            const eyeCenter = [(leftEye[0] + rightEye[0]) / 2, (leftEye[1] + rightEye[1]) / 2];
+            const faceAngle = Math.atan2(noseTip[1] - eyeCenter[1], noseTip[0] - eyeCenter[0]);
+            const faceTurn = (faceAngle * 180 / Math.PI) - 90;
+
+            // Calculate mouth openness (smile detection)
+            const mouthWidth = Math.abs(rightMouth[0] - leftMouth[0]);
+            const mouthHeight = Math.abs(keypoints[13][1] - keypoints[14][1]);
+            const mouthRatio = mouthHeight / mouthWidth;
+
+            // Check challenges
+            if (!challenges.center && Math.abs(faceTurn) < 15) {
+                completeChallenge('center');
+                currentInstruction = 'left';
+            } else if (!challenges.left && challenges.center && faceTurn < -20) {
+                completeChallenge('left');
+                currentInstruction = 'right';
+            } else if (!challenges.right && challenges.left && faceTurn > 20) {
+                completeChallenge('right');
+                currentInstruction = 'smile';
+            } else if (!challenges.smile && challenges.right && mouthRatio > 0.3) {
+                completeChallenge('smile');
+                finishDetection();
+            }
+        }
+
+        function completeChallenge(challenge) {
+            challenges[challenge] = true;
+            document.getElementById(`challenge-${challenge}`).classList.add('completed');
+            updateInstruction();
+        }
+
+        function updateInstruction() {
+            document.getElementById('instruction').textContent = instructions[currentInstruction];
+        }
+
+        async function finishDetection() {
+            clearInterval(detectionInterval);
+
+            // Calculate confidence based on completed challenges
+            const completed = Object.values(challenges).filter(v => v).length;
+            const confidence = (completed / 4) * 100;
+
+            showStatus('success', `✅ Liveness verified! Confidence: ${confidence}%`);
+
+            // Send result to backend
+            try {
+                await fetch('/liveness-result/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        verified: confidence >= 75,
+                        confidence: confidence,
+                        challenges: challenges
+                    })
+                });
+            } catch (e) {
+                console.log('Backend result send failed:', e);
+            }
+
+            // Send result to parent window if in iframe
+            if (window.opener || window.parent !== window) {
+                const result = {
+                    verified: confidence >= 75,
+                    confidence: confidence,
+                    challenges: challenges
+                };
+
+                if (window.opener) {
+                    window.opener.postMessage({ type: 'liveness_result', data: result }, '*');
+                } else {
+                    window.parent.postMessage({ type: 'liveness_result', data: result }, '*');
+                }
+            }
+
+            setTimeout(() => {
+                if (window.opener || window.parent !== window) {
+                    window.close();
+                } else {
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('startBtn').textContent = 'Start Again';
+                }
+            }, 3000);
+        }
+
+        function showStatus(type, message) {
+            const status = document.getElementById('statusMessage');
+            status.className = `status-message ${type}`;
+            status.textContent = message;
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
