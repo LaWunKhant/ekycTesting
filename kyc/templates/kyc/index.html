@@ -118,12 +118,12 @@
           display:block;
           object-fit:cover;
           background:#000;
-          transform: scaleX(1); /* Default: no mirror */
+          transform: scaleX(-1); /* Default: ALWAYS mirror preview (natural view) */
         }
 
-        /* Mirror the live preview ONLY for selfie */
-        #video.mirror {
-          transform: scaleX(-1);
+        /* For back camera (ID cards), remove mirror if environment camera detected */
+        #video.no-mirror {
+          transform: scaleX(1);
         }
 
         #displayCanvas {
@@ -532,12 +532,12 @@
                         <li>Look at the center of your screen</li>
                         <li>Turn your head <strong>LEFT</strong></li>
                         <li>Turn your head <strong>RIGHT</strong></li>
-                        <li>Open your mouth <strong>2 times</strong> naturally</li>
+                        <li><strong>Open your mouth WIDE</strong></li>
                     </ol>
 
                     <div class="liveness-note">
                         <strong>⚡ Note:</strong> This will open a separate window for liveness detection.
-                        Please complete the challenges and return here when done. Press 'Q' to quit if needed.
+                        Please complete the challenges and return here when done.
                     </div>
                 </div>
 
@@ -597,8 +597,20 @@
                 const stepId = steps[currentStep].id;
                 const video = document.getElementById('video');
 
-                if (stream) stream.getTracks().forEach(t => t.stop());
-                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                // Stop any existing streams
+                if (stream) {
+                    stream.getTracks().forEach(t => t.stop());
+                    stream = null;
+                }
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+
+                // Clear video source
+                video.srcObject = null;
+
+                console.log(`Starting camera for step: ${stepId}`);
 
                 const constraints = {
                   video: {
@@ -608,20 +620,37 @@
                   }
                 };
 
+                // Request camera access
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                // Set video source
                 video.srcObject = stream;
 
-                // Mirror the preview ONLY for selfie (front camera)
-                if (stepId === 'selfie' || stepId === 'front' || stepId === 'back') {
-                    video.classList.add('mirror');
+                // Check which camera we actually got
+                const videoTrack = stream.getVideoTracks()[0];
+                const settings = videoTrack.getSettings();
+                actualFacingMode = settings.facingMode;
+
+                console.log(`Step: ${stepId}, Requested: ${stepId === 'selfie' ? 'user' : 'environment'}, Got: ${actualFacingMode}`);
+
+                // ✅ ALWAYS mirror preview by default (natural mirror view)
+                // ONLY remove mirror if we detect back/environment camera
+                if (actualFacingMode === 'environment') {
+                    video.classList.add('no-mirror');
                 } else {
-                    video.classList.remove('mirror');
+                    video.classList.remove('no-mirror');
                 }
 
-                await new Promise(resolve => {
+                // Wait for video to be ready
+                await new Promise((resolve, reject) => {
+                  const timeout = setTimeout(() => reject(new Error('Video load timeout')), 10000);
+
                   video.onloadedmetadata = () => {
-                    video.play();
-                    resolve();
+                    clearTimeout(timeout);
+                    video.play().then(() => {
+                        console.log('Video playing successfully');
+                        resolve();
+                    }).catch(reject);
                   };
                 });
 
@@ -630,7 +659,21 @@
 
               } catch (error) {
                 console.error('Camera error:', error);
-                showStatus('error', `${error.name}: ${error.message}`);
+
+                // More user-friendly error messages
+                let errorMessage = 'Camera access failed: ';
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage = 'No camera found on your device.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage = 'Camera is already in use by another application.';
+                } else {
+                    errorMessage += error.message;
+                }
+
+                showStatus('error', errorMessage);
+                throw error; // Re-throw so calling function can handle it
               }
         }
 
@@ -672,8 +715,13 @@
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
-            // DON'T mirror the captured image - we want text to be readable
-            // The preview is mirrored for UX, but the saved photo should NOT be mirrored
+            // ✅ For front camera (mirrored preview):
+            // - Preview is mirrored (natural view)
+            // - Capture should be direct (un-mirrored) so text is readable
+            // For back camera: direct capture (already correct)
+
+            // Always capture directly from video without mirroring
+            // This ensures ID card text is readable in the saved image
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             const imageData = canvas.toDataURL('image/jpeg', 0.95);
@@ -819,8 +867,33 @@
             document.getElementById('livenessScreen').classList.remove('active');
             currentStep = 3;
             updateStepIndicator(currentStep);
-            await startCamera();
+
+            // Show camera container first
             document.getElementById('cameraContainer').classList.add('active');
+
+            // Add a small delay to ensure DOM is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Then start camera
+            try {
+                await startCamera();
+            } catch (error) {
+                console.error('Camera start error:', error);
+                showStatus('error', 'Camera permission denied. Please allow camera access and try again.');
+
+                // Show retry button
+                setTimeout(() => {
+                    if (confirm('Camera access was denied. Would you like to try again?')) {
+                        proceedAfterLiveness();
+                    } else {
+                        // Go back to liveness screen
+                        document.getElementById('cameraContainer').classList.remove('active');
+                        document.getElementById('livenessScreen').classList.add('active');
+                        currentStep = 2;
+                        updateStepIndicator(currentStep);
+                    }
+                }, 1000);
+            }
         }
 
         async function verifyIdentity() {

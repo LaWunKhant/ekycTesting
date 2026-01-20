@@ -56,14 +56,14 @@
             border-radius: 15px;
             overflow: hidden;
             margin-bottom: 20px;
-            transform: scaleX(-1); /* ✅ Flip the entire container to un-mirror the video */
+            transform: scaleX(-1);
         }
 
         #video {
             width: 100%;
             display: block;
             object-fit: cover;
-            transform: none !important; /* ✅ NO MIRROR - completely remove any transform */
+            transform: none !important;
         }
 
         .overlay {
@@ -73,7 +73,7 @@
             right: 0;
             bottom: 0;
             pointer-events: none;
-            transform: scaleX(-1); /* ✅ Flip overlay back so text reads correctly */
+            transform: scaleX(-1);
         }
 
         .face-guide {
@@ -252,9 +252,9 @@
                         <span class="challenge-icon">➡️</span>
                         <span>Turn head RIGHT</span>
                     </div>
-                    <div class="challenge-item" id="challenge-smile">
-                        <span class="challenge-icon">😊</span>
-                        <span>Smile</span>
+                    <div class="challenge-item" id="challenge-mouth">
+                        <span class="challenge-icon">😮</span>
+                        <span>Open mouth WIDE</span>
                     </div>
                 </div>
 
@@ -280,14 +280,14 @@
             center: false,
             left: false,
             right: false,
-            smile: false
+            mouth: false
         };
         let currentInstruction = 'center';
         const instructions = {
             center: 'Look at the center',
             left: 'Turn your head LEFT ⬅️',
             right: 'Turn your head RIGHT ➡️',
-            smile: 'SMILE! 😊'
+            mouth: 'Open your MOUTH WIDE! 😮'
         };
 
         async function init() {
@@ -295,13 +295,11 @@
                 console.log('Starting initialization...');
                 video = document.getElementById('video');
 
-                // Set TF backend
                 console.log('Setting TensorFlow backend...');
                 await tf.setBackend('webgl');
                 await tf.ready();
                 console.log('TensorFlow ready');
 
-                // Start camera first
                 console.log('Requesting camera access...');
                 const stream = await navigator.mediaDevices.getUserMedia({
                     audio: false,
@@ -314,7 +312,6 @@
 
                 video.srcObject = stream;
 
-                // Wait for video to be ready
                 await new Promise((resolve) => {
                     video.onloadedmetadata = () => {
                         video.play();
@@ -323,7 +320,6 @@
                     };
                 });
 
-                // Load face detection model
                 console.log('Loading face detection model...');
                 model = await faceLandmarksDetection.createDetector(
                     faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
@@ -352,7 +348,6 @@
             showStatus('info', 'Starting liveness detection...');
             isDetecting = true;
 
-            // Notify backend
             try {
                 await fetch('/start-liveness/', {
                     method: 'POST',
@@ -362,15 +357,12 @@
                 console.log('Backend notification failed:', e);
             }
 
-            // Reset challenges
-            challenges = { center: false, left: false, right: false, smile: false };
+            challenges = { center: false, left: false, right: false, mouth: false };
             currentInstruction = 'center';
             updateInstruction();
 
-            // Clear any existing interval
             if (detectionInterval) clearInterval(detectionInterval);
 
-            // Start detection loop
             detectionInterval = setInterval(detectFace, 300);
         }
 
@@ -381,7 +373,7 @@
 
             try {
                 const predictions = await model.estimateFaces(video, {
-                    flipHorizontal: false  // ✅ Important: don't flip for non-mirrored video
+                    flipHorizontal: false
                 });
 
                 if (predictions.length > 0) {
@@ -400,14 +392,16 @@
         function analyzeFace(face) {
             const keypoints = face.keypoints;
 
-            // Get key facial landmarks (using new keypoints structure)
+            // Key facial landmarks
             const noseTip = keypoints[1];
             const leftEye = keypoints[33];
             const rightEye = keypoints[263];
-            const leftMouth = keypoints[61];
-            const rightMouth = keypoints[291];
-            const upperLip = keypoints[13];
-            const lowerLip = keypoints[14];
+
+            // Mouth landmarks for open mouth detection
+            const upperLipTop = keypoints[13];      // Top of upper lip
+            const lowerLipBottom = keypoints[14];   // Bottom of lower lip
+            const leftMouth = keypoints[61];        // Left corner
+            const rightMouth = keypoints[291];      // Right corner
 
             // Calculate face orientation
             const eyeCenter = {
@@ -421,30 +415,39 @@
             );
             const faceTurn = (faceAngle * 180 / Math.PI) - 90;
 
-            // ✅ INVERTED: Because video is flipped, we need to reverse the logic
-            // When user turns RIGHT (physically), faceTurn is negative
-            // When user turns LEFT (physically), faceTurn is positive
-
-            // Calculate mouth openness (smile detection)
+            // ✅ Calculate mouth opening (vertical distance)
+            const mouthHeight = Math.abs(lowerLipBottom.y - upperLipTop.y);
             const mouthWidth = Math.abs(rightMouth.x - leftMouth.x);
-            const mouthHeight = Math.abs(upperLip.y - lowerLip.y);
-            const mouthRatio = mouthHeight / mouthWidth;
 
-            updateDebug(`Turn: ${faceTurn.toFixed(1)}° | Mouth: ${(mouthRatio * 100).toFixed(1)}%`);
+            // Calculate aspect ratio - open mouth has higher ratio
+            const mouthAspectRatio = mouthHeight / mouthWidth;
 
-            // Check challenges (INVERTED angles for flipped video)
+            // Also calculate absolute opening distance for better detection
+            const absoluteMouthOpening = mouthHeight;
+
+            updateDebug(`Turn: ${faceTurn.toFixed(1)}° | Mouth: ${(mouthAspectRatio * 100).toFixed(1)}% | Opening: ${absoluteMouthOpening.toFixed(1)}px`);
+
+            // Check challenges
             if (!challenges.center && Math.abs(faceTurn) < 15) {
                 completeChallenge('center');
                 currentInstruction = 'left';
-            } else if (!challenges.left && challenges.center && faceTurn > 25) {  // ✅ SWAPPED: positive = user turns left
+            } else if (!challenges.left && challenges.center && faceTurn > 25) {
                 completeChallenge('left');
                 currentInstruction = 'right';
-            } else if (!challenges.right && challenges.left && faceTurn < -25) {  // ✅ SWAPPED: negative = user turns right
+            } else if (!challenges.right && challenges.left && faceTurn < -25) {
                 completeChallenge('right');
-                currentInstruction = 'smile';
-            } else if (!challenges.smile && challenges.right && mouthRatio > 0.35) {
-                completeChallenge('smile');
-                finishDetection();
+                currentInstruction = 'mouth';
+            } else if (!challenges.mouth && challenges.right) {
+                // ✅ Detect wide open mouth
+                // Using both ratio and absolute distance for better accuracy
+                const isWideOpen = (mouthAspectRatio > 0.5 && absoluteMouthOpening > 20) ||
+                                   (mouthAspectRatio > 0.6) ||
+                                   (absoluteMouthOpening > 30);
+
+                if (isWideOpen) {
+                    completeChallenge('mouth');
+                    finishDetection();
+                }
             }
         }
 
@@ -453,7 +456,6 @@
             document.getElementById(`challenge-${challenge}`).classList.add('completed');
             updateInstruction();
 
-            // Play a success sound or visual feedback
             showStatus('success', `✓ ${challenge.toUpperCase()} completed!`);
             setTimeout(() => {
                 if (isDetecting) {
@@ -476,7 +478,6 @@
             isDetecting = false;
             clearInterval(detectionInterval);
 
-            // Calculate confidence
             const completed = Object.values(challenges).filter(v => v).length;
             const confidence = (completed / 4) * 100;
 
@@ -488,7 +489,6 @@
                 challenges: challenges
             };
 
-            // Send to backend
             try {
                 await fetch('/liveness-result/', {
                     method: 'POST',
@@ -499,14 +499,12 @@
                 console.log('Backend result send failed:', e);
             }
 
-            // Send to parent window
             if (window.opener) {
                 window.opener.postMessage({ type: 'liveness_result', data: result }, '*');
             } else if (window.parent !== window) {
                 window.parent.postMessage({ type: 'liveness_result', data: result }, '*');
             }
 
-            // Close window after delay
             setTimeout(() => {
                 if (window.opener || window.parent !== window) {
                     window.close();
@@ -524,10 +522,8 @@
             status.textContent = message;
         }
 
-        // Initialize on load
         window.addEventListener('load', init);
 
-        // Cleanup on close
         window.addEventListener('beforeunload', () => {
             if (detectionInterval) clearInterval(detectionInterval);
             if (video && video.srcObject) {
