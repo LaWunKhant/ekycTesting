@@ -4,14 +4,24 @@ import base64
 import os
 from datetime import datetime
 import json
+
 import cv2
 import numpy as np
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static"),
+    static_url_path="/static",
+)
 CORS(app)
 
 # Directory to store uploaded images
-UPLOAD_FOLDER = 'uploads'
+
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "kyc", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Store liveness detection state (WEB-BASED ONLY)
@@ -26,51 +36,13 @@ liveness_state = {
 @app.route('/')
 def index():
     """Serve the main HTML page"""
-    possible_paths = [
-        'index.html',
-        'moonkyc.html',
-        'kyc/templates/kyc/index.html',
-        'templates/index.html',
-        'templates/kyc/index.html'
-    ]
-
-    for path in possible_paths:
-        if os.path.exists(path):
-            directory = os.path.dirname(path) or '.'
-            filename = os.path.basename(path)
-            print(f"✓ Serving HTML from: {path}")
-            return send_from_directory(directory, filename)
-
-    return f"""
-    <html>
-        <body style="font-family: Arial; padding: 40px; background: #f5f5f5;">
-            <h1 style="color: #e74c3c;">❌ HTML File Not Found</h1>
-            <p>Please save your HTML file as one of:</p>
-            <ul>
-                <li><code>index.html</code></li>
-                <li><code>moonkyc.html</code></li>
-            </ul>
-            <p>In the same directory as <code>moonkyc_server.py</code></p>
-            <p><strong>Current directory:</strong> {os.getcwd()}</p>
-        </body>
-    </html>
-    """, 404
+    return render_template('kyc/index.html')
 
 
-@app.route('/liveness.html')
+@app.route('/liveness')
 def liveness_page():
     """Serve the liveness detection page"""
-    if os.path.exists('liveness.html'):
-        return send_from_directory('.', 'liveness.html')
-    else:
-        return """
-        <html>
-            <body style="font-family: Arial; padding: 40px;">
-                <h1 style="color: #e74c3c;">❌ liveness.html not found</h1>
-                <p>Please save the liveness.html file in the same directory as moonkyc_server.py</p>
-            </body>
-        </html>
-        """, 404
+    return render_template('kyc/liveness.html')
 
 
 @app.route('/capture/', methods=['POST', 'OPTIONS'])
