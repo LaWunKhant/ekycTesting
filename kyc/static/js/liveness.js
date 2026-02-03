@@ -10,6 +10,10 @@
             mouth: false
         };
         let currentInstruction = 'center';
+        const params = new URLSearchParams(window.location.search);
+        const SESSION_ID = params.get("session_id");  // may be null if not passed
+        console.log("Liveness SESSION_ID:", SESSION_ID);
+
         const instructions = {
             center: 'Look at the center',
             left: 'Turn your head LEFT ⬅️',
@@ -211,20 +215,11 @@
             showStatus('success', `✅ Liveness verified! Confidence: ${confidence}%`);
 
             const result = {
+                session_id: SESSION_ID,
                 verified: confidence >= 75,
                 confidence: confidence,
                 challenges: challenges
             };
-
-            try {
-                await fetch('/liveness-result/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(result)
-                });
-            } catch (e) {
-                console.log('Backend result send failed:', e);
-            }
 
             if (window.opener) {
                 window.opener.postMessage({ type: 'liveness_result', data: result }, '*');

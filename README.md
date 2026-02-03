@@ -70,7 +70,7 @@ cd moonkyc
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python moonkyc_server.py
+python -m kyc.moonkyc_server
 ngrok http 3000
 
 ⚠️ Disclaimer

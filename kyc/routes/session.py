@@ -1,55 +1,38 @@
 from flask import Blueprint, jsonify, request
 import uuid
-from datetime import datetime, timezone
+import json
+from datetime import datetime, UTC
 
 from kyc.db import get_db
 
-session_bp = Blueprint('session', __name__, url_prefix='/session')
+session_bp = Blueprint("session", __name__, url_prefix="/session")
 
 
-@session_bp.route('/start', methods=['POST'])
+@session_bp.route("/start", methods=["POST"])
 def start_session():
-    """
-    Start a new KYC session
-    """
     session_id = str(uuid.uuid4())
-    user_agent = request.headers.get('User-Agent', 'unknown')
+    user_agent = request.headers.get("User-Agent", "unknown")
     ip_address = request.remote_addr
 
     db = get_db()
-    cursor = db.cursor()
+    cur = db.cursor()
 
-    cursor.execute("""
+    now = datetime.now(UTC).isoformat()
+
+    cur.execute("""
         INSERT INTO verification_sessions (
-            id,
-            status,
-            current_step,
-            user_agent,
-            ip_address,
-            created_at,
-            updated_at
+            id, status, current_step, user_agent, ip_address, created_at, updated_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        session_id,
-        "started",
-        1,
-        user_agent,
-        ip_address,
-        datetime.utcnow().isoformat(),
-        datetime.utcnow().isoformat()
-    ))
+    """, (session_id, "started", 1, user_agent, ip_address, now, now))
 
     db.commit()
+    db.close()
 
-    return jsonify({
-        "success": True,
-        "session_id": session_id,
-        "status": "started"
-    })
+    return jsonify({"success": True, "session_id": session_id, "status": "started"})
 
 
-@session_bp.route('/status/<session_id>', methods=['GET'])
+@session_bp.route("/status/<session_id>", methods=["GET"])
 def session_status(session_id):
     conn = get_db()
     cur = conn.cursor()
@@ -61,31 +44,39 @@ def session_status(session_id):
     if row is None:
         return jsonify({"success": False, "error": "session not found"}), 404
 
-    # sqlite3.Row -> dict
     data = dict(row)
 
-    # (optional) convert int flags to real booleans for API consumers
+    # convert ints to bools
     for k in ["liveness_running", "liveness_completed", "liveness_verified", "verify_verified"]:
         if k in data and data[k] is not None:
             data[k] = bool(data[k])
 
+    # optional: decode challenges JSON for API
+    if data.get("liveness_challenges"):
+        try:
+            data["liveness_challenges"] = json.loads(data["liveness_challenges"])
+        except Exception:
+            pass
+
     return jsonify({"success": True, "session": data})
 
+
 @session_bp.route("/liveness-result", methods=["POST"])
-def save_liveness_result():
+def liveness_result():
     data = request.get_json(force=True) or {}
     session_id = data.get("session_id")
 
     if not session_id:
         return jsonify({"success": False, "error": "Missing session_id"}), 400
 
-    # accept either naming style
-    verified = bool(data.get("verified", False))
-    confidence = float(data.get("confidence", 0.0))
+    challenges = data.get("challenges") or {}
+    challenges_json = json.dumps(challenges, ensure_ascii=False)
 
-    # optional flags
-    running = bool(data.get("running", False))
-    completed = bool(data.get("completed", True))  # result usually means completed
+    completed_count = sum(1 for v in challenges.values() if v is True)
+    total_count = len(challenges) if challenges else 4
+
+    verified = 1 if bool(data.get("verified")) else 0
+    confidence = float(data.get("confidence") or 0.0)
 
     conn = get_db()
     cur = conn.cursor()
@@ -95,25 +86,39 @@ def save_liveness_result():
         conn.close()
         return jsonify({"success": False, "error": "Session not found"}), 404
 
+    now = datetime.now(UTC).isoformat()
+
     cur.execute("""
         UPDATE verification_sessions
         SET
-            liveness_running = ?,
-            liveness_completed = ?,
+            liveness_running = 0,
+            liveness_completed = 1,
             liveness_verified = ?,
             liveness_confidence = ?,
+            liveness_challenges = ?,
+            liveness_completed_count = ?,
+            liveness_total_count = ?,
             updated_at = ?
         WHERE id = ?
     """, (
-        1 if running else 0,
-        1 if completed else 0,
-        1 if verified else 0,
+        verified,
         confidence,
-        datetime.now(timezone.utc).isoformat(),
+        challenges_json,
+        completed_count,
+        total_count,
+        now,
         session_id
     ))
 
     conn.commit()
     conn.close()
 
-    return jsonify({"success": True})
+    return jsonify({
+        "success": True,
+        "session_id": session_id,
+        "liveness_verified": bool(verified),
+        "liveness_confidence": confidence,
+        "liveness_completed_count": completed_count,
+        "liveness_total_count": total_count,
+        "liveness_challenges": challenges
+    })

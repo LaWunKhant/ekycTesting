@@ -15,6 +15,7 @@
             selfie: null
         };
         let livenessCompleted = false;
+        let livenessListenerAttached = false;
         let livenessCheckInterval = null;
 
         const steps = [
@@ -272,53 +273,73 @@
         }
 
         async function startLivenessDetection() {
+          if (!SESSION_ID) {
+            showStatus("error", "Missing session. Please restart verification.");
+            return;
+          }
+
           const w = window.open(
-            "/liveness",
+            `/liveness?session_id=${encodeURIComponent(SESSION_ID)}`,
             "livenessWindow",
             "width=520,height=820"
           );
 
           if (!w) {
-            showStatus('error', "Popup blocked. Allow popups for this site (localhost) and try again.");
+            showStatus("error", "Popup blocked. Allow popups for this site (localhost) and try again.");
             return;
           }
 
-          showStatus('loading', 'Starting liveness detection...');
+          showStatus("loading", "Starting liveness detection...");
 
           try {
-            await fetch('/start-liveness/', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
+            await fetch("/start-liveness/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ session_id: SESSION_ID }),
             });
-          } catch (error) {
-            console.log("start-liveness failed:", error);
+          } catch (e) {
+            console.log("start-liveness failed:", e);
           }
 
-          window.addEventListener("message", async (event) => {
-            if (!event.data || event.data.type !== "liveness_result") return;
+          if (livenessListenerAttached) return;
+          livenessListenerAttached = true;
 
-            const result = event.data.data;
+          window.addEventListener(
+            "message",
+            async (event) => {
+              try {
+                if (!event.data || event.data.type !== "liveness_result") return;
 
-            if (result.verified) {
-              livenessCompleted = true;
-              showStatus('success', `✓ Liveness verified! Confidence: ${result.confidence}%`);
-              setTimeout(() => proceedAfterLiveness(), 1500);
-            } else {
-              showStatus('error', 'Liveness verification failed. Please try again.');
-              setTimeout(() => hideStatus(), 3000);
-            }
+                const result = event.data.data || {};
+                result.session_id = SESSION_ID; // source of truth
 
-            try {
-              await fetch('/liveness-result/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(result)
-              });
-            } catch (e) {
-              console.log('Backend result send failed:', e);
-            }
-          }, { once: true });
+                // Save to backend (pick ONE endpoint!)
+                await fetch("/session/liveness-result", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(result),
+                });
+
+                if (result.verified) {
+                  livenessCompleted = true;
+                  showStatus("success", `✓ Liveness verified! Confidence: ${result.confidence}%`);
+                  setTimeout(() => proceedAfterLiveness(), 1500);
+                } else {
+                  showStatus("error", "Liveness verification failed. Please try again.");
+                  setTimeout(() => hideStatus(), 3000);
+                }
+              } catch (e) {
+                console.log("Liveness handler error:", e);
+                showStatus("error", "Failed to save liveness result.");
+              } finally {
+                livenessListenerAttached = false;
+              }
+            },
+            { once: true }
+          );
         }
+
+
 
         function skipLiveness() {
             if (confirm('Skipping liveness detection may reduce security. Continue anyway?')) {
