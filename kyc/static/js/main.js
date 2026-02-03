@@ -1,6 +1,7 @@
 
         let currentStep = 0;
         let stream = null;
+        let SESSION_ID = null;
         let animationFrameId = null;
         let actualFacingMode = null;
         let capturedImages = {
@@ -24,12 +25,34 @@
             { id: 'verify', title: 'Verification', icon: '✓', instruction: 'Verifying your identity...' }
         ];
 
-        function startVerification() {
-            document.getElementById('startScreen').classList.add('hidden');
-            document.getElementById('cameraContainer').classList.add('active');
-            updateStepIndicator(0);
-            startCamera();
+        async function startVerification() {
+              try {
+                // 1) Create session first
+                const res = await fetch("/session/start", { method: "POST" });
+                const data = await res.json();
+
+                if (!data.success) {
+                  showStatus("error", "Failed to start session");
+                  return;
+                }
+
+                SESSION_ID = data.session_id;
+                console.log("SESSION_ID:", SESSION_ID);
+
+                // 2) Start your existing UI flow
+                document.getElementById('startScreen').classList.add('hidden');
+                document.getElementById('cameraContainer').classList.add('active');
+
+                currentStep = 0;
+                updateStepIndicator(0);
+
+                await startCamera();
+              } catch (err) {
+                console.error(err);
+                showStatus("error", "Session start failed: " + err.message);
+              }
         }
+
 
         async function startCamera() {
               try {
@@ -177,6 +200,10 @@
         }
 
         async function confirmPhoto() {
+            if (!SESSION_ID) {
+              showStatus("error", "Missing session. Please restart verification.");
+              return;
+            }
             const stepId = steps[currentStep].id;
             const imageData = capturedImages[stepId];
 
@@ -189,6 +216,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
+                        session_id: SESSION_ID,
                         image: imageData,
                         type: stepId
                     })
@@ -245,7 +273,7 @@
 
         async function startLivenessDetection() {
           const w = window.open(
-            "/liveness.html",
+            "/liveness",
             "livenessWindow",
             "width=520,height=820"
           );

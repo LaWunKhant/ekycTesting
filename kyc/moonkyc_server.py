@@ -1,15 +1,17 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import base64
 import os
 from datetime import datetime
-import json
 
 import cv2
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from kyc.db import init_db
+from kyc.db import get_db
+from kyc.routes.session import session_bp
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(
     __name__,
@@ -18,6 +20,15 @@ app = Flask(
     static_url_path="/static",
 )
 CORS(app)
+
+# ✅ initialize DB schema on startup
+init_db()
+
+# ✅ register routes
+app.register_blueprint(session_bp)
+
+print(app.url_map)
+
 
 # Directory to store uploaded images
 
@@ -66,6 +77,11 @@ def capture_image():
             print("❌ Missing image or type field")
             return jsonify({'success': False, 'error': 'Missing image or type'}), 400
 
+        session_id = data.get("session_id")
+        if not session_id:
+            print("❌ Missing session_id")
+            return jsonify({'success': False, 'error': 'Missing session_id'}), 400
+
         image_data = data['image']
         image_type = data['type']
 
@@ -112,6 +128,48 @@ def capture_image():
 
         except Exception as e:
             print(f"⚠ Image verification failed: {e}")
+
+        # 🔗 Bind image to verification session
+        col_map = {
+            "front": "front_image",
+            "back": "back_image",
+            "selfie": "selfie_image",
+        }
+
+        col = col_map.get(image_type)
+        if not col:
+            return jsonify({'success': False, 'error': 'Invalid image type'}), 400
+
+        step_map = {"front": 2, "back": 3, "selfie": 4}
+        new_step = step_map.get(image_type, 1)
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # ensure session exists
+        cur.execute("SELECT id FROM verification_sessions WHERE id = ?", (session_id,))
+        if cur.fetchone() is None:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+
+        cur.execute(f"""
+            UPDATE verification_sessions
+            SET {col} = ?,
+                current_step = CASE
+                    WHEN current_step < ? THEN ?
+                    ELSE current_step
+                END,
+                updated_at = ?
+            WHERE id = ?
+        """, (
+            filename,
+            new_step, new_step,
+            datetime.utcnow().isoformat(),
+            session_id
+        ))
+
+        conn.commit()
+        conn.close()
 
         return jsonify({
             'success': True,
