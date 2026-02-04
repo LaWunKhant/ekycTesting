@@ -314,7 +314,7 @@
                 result.session_id = SESSION_ID; // source of truth
 
                 // Save to backend (pick ONE endpoint!)
-                await fetch("/session/liveness-result", {
+                await fetch("/liveness-result", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(result),
@@ -395,6 +395,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
+                        session_id: SESSION_ID,
                         front_image: capturedPaths.front,
                         back_image: capturedPaths.back,
                         selfie_image: capturedPaths.selfie,

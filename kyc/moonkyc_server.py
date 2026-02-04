@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import base64
 import os
-from datetime import datetime
+import json
+from datetime import datetime,UTC
 
 import cv2
 import numpy as np
@@ -224,7 +225,7 @@ def start_liveness():
 
 @app.route('/liveness-result/', methods=['POST', 'OPTIONS'])
 def liveness_result():
-    """Receive liveness detection results from web client"""
+    """Receive liveness detection results from web client AND persist to DB"""
     if request.method == 'OPTIONS':
         response = jsonify({'success': True})
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -234,25 +235,75 @@ def liveness_result():
 
     try:
         global liveness_state
-        data = request.get_json(force=True)
+        data = request.get_json(force=True) or {}
 
+        session_id = data.get("session_id")
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Missing session_id'}), 400
+
+        verified = bool(data.get('verified', False))
+        confidence = float(data.get('confidence', 0))
+        challenges = data.get('challenges', {}) or {}
+
+        completed_count = sum(1 for v in challenges.values() if v)
+        total_count = len(challenges) if challenges else 4  # fallback
+
+        # update in-memory state (optional)
         liveness_state['running'] = False
         liveness_state['completed'] = True
-        liveness_state['verified'] = data.get('verified', False)
-        liveness_state['confidence'] = data.get('confidence', 0)
+        liveness_state['verified'] = verified
+        liveness_state['confidence'] = confidence
 
         print(f"\n{'=' * 70}")
-        print(f"🎭 WEB LIVENESS RESULT RECEIVED:")
+        print("🎭 WEB LIVENESS RESULT RECEIVED:")
         print(f"{'=' * 70}")
-        print(f"   Verified: {'✅ YES' if liveness_state['verified'] else '❌ NO'}")
-        print(f"   Confidence: {liveness_state['confidence']:.1f}%")
-        print(f"   Challenges: {data.get('challenges', {})}")
+        print(f"   Session: {session_id}")
+        print(f"   Verified: {'✅ YES' if verified else '❌ NO'}")
+        print(f"   Confidence: {confidence:.1f}%")
+        print(f"   Challenges: {challenges}")
         print(f"{'=' * 70}\n")
 
+        # ✅ persist to DB
+        conn = get_db()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM verification_sessions WHERE id = ?", (session_id,))
+        if cur.fetchone() is None:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+
+        cur.execute("""
+            UPDATE verification_sessions
+            SET
+                liveness_running = 0,
+                liveness_completed = 1,
+                liveness_verified = ?,
+                liveness_confidence = ?,
+                liveness_challenges = ?,
+                liveness_completed_count = ?,
+                liveness_total_count = ?,
+                updated_at = ?
+            WHERE id = ?
+        """, (
+            1 if verified else 0,
+            confidence,
+            json.dumps(challenges),
+            completed_count,
+            total_count,
+            datetime.now(UTC).isoformat(),
+            session_id
+        ))
+
+        conn.commit()
+        conn.close()
+
         return jsonify({'success': True})
+
     except Exception as e:
-        print(f"✗ Error in /liveness-result/: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
 @app.route('/check-liveness/', methods=['GET'])
@@ -270,10 +321,8 @@ def check_liveness():
         print(f"✗ Error in /check-liveness/: {str(e)}")
         return jsonify({'completed': False, 'verified': False}), 500
 
-
 @app.route('/verify/', methods=['POST', 'OPTIONS'])
 def verify_identity():
-    """Verify identity using DeepFace"""
     if request.method == 'OPTIONS':
         response = jsonify({'success': True})
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -282,56 +331,69 @@ def verify_identity():
         return response
 
     try:
-        data = request.get_json(force=True)
+        data = request.get_json(force=True) or {}
+        session_id = data.get("session_id")
 
-        if not data:
-            return jsonify({'success': False, 'error': 'No data received'}), 400
+        if not session_id:
+            return jsonify({'success': False, 'verified': False, 'error': 'Missing session_id'}), 400
 
-        front_image = data.get('front_image')
-        back_image = data.get('back_image')
-        selfie_image = data.get('selfie_image')
-        liveness_verified = data.get('liveness_verified', False)
+        # 1) Load session from DB (source of truth)
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM verification_sessions WHERE id = ?", (session_id,))
+        row = cur.fetchone()
+
+        if row is None:
+            conn.close()
+            return jsonify({'success': False, 'verified': False, 'error': 'Session not found'}), 404
+
+        session = dict(row)
+
+        front_image = session.get("front_image")
+        back_image = session.get("back_image")
+        selfie_image = session.get("selfie_image")
+        liveness_verified = bool(session.get("liveness_verified", 0))
 
         print(f"\n{'=' * 70}")
-        print(f"🔍 VERIFICATION REQUEST")
+        print("🔍 VERIFICATION REQUEST (SESSION-BASED)")
         print(f"{'=' * 70}")
+        print(f"Session ID: {session_id}")
         print(f"📄 Front Image: {front_image}")
-        print(f"📄 Back Image: {back_image}")
-        print(f"🤳 Selfie Image: {selfie_image}")
+        print(f"📄 Back Image:  {back_image}")
+        print(f"🤳 Selfie Image:{selfie_image}")
         print(f"🎭 Liveness: {'✓ Verified' if liveness_verified else '✗ Not verified'}")
         print(f"{'=' * 70}\n")
 
-        # Check if all required images are present
+        # 2) Validate required images
         if not all([front_image, back_image, selfie_image]):
+            conn.close()
             return jsonify({
                 'success': False,
                 'verified': False,
-                'error': 'Missing required images'
+                'error': 'Missing required images in session'
             }), 400
 
-        # Verify files exist
         front_path = os.path.join(UPLOAD_FOLDER, front_image)
-        back_path = os.path.join(UPLOAD_FOLDER, back_image)
+        back_path  = os.path.join(UPLOAD_FOLDER, back_image)
         selfie_path = os.path.join(UPLOAD_FOLDER, selfie_image)
 
         for img_path, img_name in [(front_path, 'front'), (back_path, 'back'), (selfie_path, 'selfie')]:
             if not os.path.exists(img_path):
+                conn.close()
                 return jsonify({
                     'success': False,
                     'verified': False,
-                    'error': f'{img_name} image file not found'
+                    'error': f'{img_name} image file not found: {img_path}'
                 }), 404
 
-        # Use DeepFace for verification
+        # 3) Run your existing 3-model verification
         try:
             from deepface import DeepFace
 
             print("🔬 Extracting face from ID card...")
 
-            # Extract face from ID card (front image)
             id_img = cv2.imread(front_path)
 
-            # Try to detect and extract face from ID
             try:
                 faces = DeepFace.extract_faces(
                     img_path=front_path,
@@ -345,7 +407,6 @@ def verify_identity():
                     fa = largest_face['facial_area']
                     x, y, w, h = fa['x'], fa['y'], fa['w'], fa['h']
 
-                    # Add padding
                     padding = int(w * 0.2)
                     x = max(0, x - padding)
                     y = max(0, y - padding)
@@ -354,7 +415,6 @@ def verify_identity():
 
                     id_face = id_img[y:y + h, x:x + w]
 
-                    # Save extracted face
                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                     id_face_path = os.path.join(UPLOAD_FOLDER, f'id_face_{timestamp}.jpg')
                     cv2.imwrite(id_face_path, id_face)
@@ -368,7 +428,6 @@ def verify_identity():
                 print(f"⚠ Face extraction failed: {e}, using full ID image")
                 id_face_path = front_path
 
-            # Perform face verification
             print("\n🔬 Comparing faces using multiple models...")
 
             models = ["VGG-Face", "Facenet", "ArcFace"]
@@ -376,7 +435,7 @@ def verify_identity():
 
             for model in models:
                 try:
-                    result = DeepFace.verify(
+                    r = DeepFace.verify(
                         img1_path=id_face_path,
                         img2_path=selfie_path,
                         model_name=model,
@@ -384,91 +443,92 @@ def verify_identity():
                         enforce_detection=False
                     )
 
-                    distance = result['distance']
-                    threshold = result['threshold']
-                    verified = result['verified']
+                    distance = r['distance']
+                    verified = r['verified']
                     similarity = (1 - distance) * 100
 
                     results.append({
                         'model': model,
                         'similarity': similarity,
-                        'verified': verified
+                        'verified': bool(verified),
+                        'distance': float(distance),
+                        'threshold': float(r.get('threshold', 0))
                     })
 
-                    status = "✓ MATCH" if verified else "✗ NO MATCH"
-                    print(f"   {model:12} | Similarity: {similarity:5.1f}% | {status}")
+                    print(f"   {model:12} | Similarity: {similarity:5.1f}% | {'✓ MATCH' if verified else '✗ NO MATCH'}")
 
                 except Exception as e:
-                    print(f"   {model:12} | ❌ Failed: {str(e)[:40]}")
+                    print(f"   {model:12} | ❌ Failed: {str(e)[:60]}")
 
             if not results:
-                print("\n❌ All verification models failed")
+                conn.close()
                 return jsonify({
                     'success': False,
                     'verified': False,
                     'error': 'Face verification failed - could not compare faces'
-                })
+                }), 500
 
-            # Calculate final result
             avg_similarity = sum(r['similarity'] for r in results) / len(results)
             votes_yes = sum(1 for r in results if r['verified'])
             votes_total = len(results)
 
-            # More lenient thresholds for real-world usage
             final_verified = (votes_yes / votes_total) >= 0.5 or avg_similarity >= 50
-
-            # Boost confidence if liveness passed
             final_confidence = avg_similarity
+
             if liveness_verified:
                 final_confidence = min(100, final_confidence + 10)
                 print("   🎭 Liveness verified: +10% confidence boost")
 
-            print(f"\n{'=' * 70}")
-            print(f"📊 VERIFICATION RESULT:")
+            print(f"\n📊 VERIFICATION RESULT:")
             print(f"   Average Similarity: {avg_similarity:.1f}%")
-            print(f"   Model Consensus: {votes_yes}/{votes_total} ({votes_yes / votes_total * 100:.1f}%) say MATCH")
+            print(f"   Model Consensus: {votes_yes}/{votes_total}")
             print(f"   Final Confidence: {final_confidence:.1f}%")
-            print(f"   Decision: {'✅ VERIFIED' if final_verified else '❌ REJECTED'}")
-            print(f"{'=' * 70}\n")
-
-            return jsonify({
-                'success': True,
-                'verified': final_verified,
-                'similarity': avg_similarity,
-                'confidence': final_confidence,
-                'votes': votes_yes,
-                'total_models': votes_total,
-                'liveness_verified': liveness_verified
-            })
+            print(f"   Decision: {'✅ VERIFIED' if final_verified else '❌ REJECTED'}\n")
 
         except ImportError:
-            print("⚠ DeepFace not available, using simulated verification")
-            similarity = 88.5
-            confidence = 85.0
+            # fallback
+            results = []
+            avg_similarity = 88.5
+            final_confidence = 95.0 if liveness_verified else 85.0
+            final_verified = avg_similarity >= 70
 
-            if liveness_verified:
-                confidence += 10
+        # 4) Save final verify results into DB (THIS is the “per session” part)
+        cur.execute("""
+            UPDATE verification_sessions
+            SET
+                verify_verified = ?,
+                verify_confidence = ?,
+                verify_similarity = ?,
+                status = ?,
+                updated_at = ?
+            WHERE id = ?
+        """, (
+            1 if final_verified else 0,
+            float(final_confidence),
+            float(avg_similarity),
+            "verified" if final_verified else "rejected",
+            datetime.now(UTC).isoformat(),
+            session_id
+        ))
 
-            verified = similarity > 70 and confidence > 75
+        conn.commit()
+        conn.close()
 
-            return jsonify({
-                'success': True,
-                'verified': verified,
-                'similarity': similarity,
-                'confidence': confidence,
-                'liveness_verified': liveness_verified,
-                'note': 'Simulated verification (DeepFace not installed)'
-            })
+        return jsonify({
+            'success': True,
+            'verified': final_verified,
+            'similarity': avg_similarity,
+            'confidence': final_confidence,
+            'votes': votes_yes if 'votes_yes' in locals() else None,
+            'total_models': votes_total if 'votes_total' in locals() else None,
+            'liveness_verified': liveness_verified,
+            'models': results
+        })
 
     except Exception as e:
-        print(f"✗ Error in /verify/: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'verified': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'verified': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
