@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verification Review - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-6xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-semibold">Verification Review</h1>
+                <p class="text-slate-400 mt-1">Review queue (latest 200)</p>
+            </div>
+            <a href="/admin/" class="text-sm text-cyan-400 hover:text-cyan-300">Admin</a>
+        </div>
+
+        <form class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4" method="get">
+            {% if is_superuser %}
+            <input
+                type="text"
+                name="tenant"
+                placeholder="Tenant slug"
+                value="{{ tenant_slug }}"
+                class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-slate-100"
+            />
+            {% else %}
+            <input
+                type="text"
+                name="tenant"
+                placeholder="Tenant slug"
+                value="{{ user_tenant.slug }}"
+                class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-slate-100"
+                disabled
+            />
+            {% endif %}
+            <input
+                type="text"
+                name="status"
+                placeholder="Session status"
+                value="{{ status }}"
+                class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-slate-100"
+            />
+            <input
+                type="text"
+                name="review_status"
+                placeholder="Review status"
+                value="{{ review_status }}"
+                class="rounded-lg border border-slate-800 bg-slate-900 px-4 py-2 text-slate-100"
+            />
+            <button class="md:col-span-3 rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold">Filter</button>
+        </form>
+
+        <div class="mt-8 overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-300">
+                    <tr>
+                        <th class="text-left px-4 py-3">Session</th>
+                        <th class="text-left px-4 py-3">Tenant</th>
+                        <th class="text-left px-4 py-3">Status</th>
+                        <th class="text-left px-4 py-3">Liveness</th>
+                        <th class="text-left px-4 py-3">AI Verify</th>
+                        <th class="text-left px-4 py-3">Review</th>
+                        <th class="text-left px-4 py-3">Created</th>
+                        <th class="text-left px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for s in sessions %}
+                    <tr class="hover:bg-slate-900/40">
+                        <td class="px-4 py-3 font-mono text-xs">{{ s.id }}</td>
+                        <td class="px-4 py-3">{{ s.tenant.slug }}</td>
+                        <td class="px-4 py-3">{{ s.status }}</td>
+                        <td class="px-4 py-3">
+                            {% if s.liveness_verified %}
+                                <span class="text-emerald-400">verified</span>
+                            {% else %}
+                                <span class="text-red-400">not verified</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if s.verify_verified %}
+                                <span class="text-emerald-400">verified</span>
+                            {% else %}
+                                <span class="text-red-400">not verified</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">{{ s.review_status }}</td>
+                        <td class="px-4 py-3">{{ s.created_at }}</td>
+                        <td class="px-4 py-3">
+                            <a class="text-cyan-400 hover:text-cyan-300" href="{% url 'review_session_detail' s.id %}">Review</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td class="px-4 py-6 text-slate-400" colspan="8">No sessions found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

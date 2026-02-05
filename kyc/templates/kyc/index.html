@@ -1,12 +1,23 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MoonKYC - Document Verification</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
 <body>
+    {% if tenant_slug %}
+    <script>
+        window.TENANT_SLUG = "{{ tenant_slug }}";
+    </script>
+    {% endif %}
+    {% if customer_id %}
+    <script>
+        window.CUSTOMER_ID = "{{ customer_id }}";
+    </script>
+    {% endif %}
     <div class="container">
         <div class="header">
             <h1>🌙 MoonEKYC</h1>
@@ -96,6 +107,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    <script src="{% static 'js/main.js' %}" defer></script>
 </body>
 </html>

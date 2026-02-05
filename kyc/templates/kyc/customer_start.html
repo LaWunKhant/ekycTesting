@@ -1,0 +1,53 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Start Verification - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="min-h-screen flex items-center justify-center px-4 py-12">
+        <div class="w-full max-w-md rounded-2xl bg-slate-900/70 border border-slate-800 shadow-2xl p-8">
+            <div class="mb-8 text-center">
+                <div class="text-3xl font-semibold tracking-tight">MoonKYC</div>
+                <p class="text-slate-400 mt-2">Customer Verification</p>
+            </div>
+
+            {% if error %}
+                <div class="mb-4 rounded-lg border border-red-700/40 bg-red-900/30 p-3 text-sm text-red-200">
+                    {{ error }}
+                </div>
+            {% endif %}
+
+            <form method="post" class="space-y-5">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-300">Company ID (Tenant)</label>
+                    <input name="company_id" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100" placeholder="acme" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300">Full Name</label>
+                    <input name="full_name" required class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300">Email (optional)</label>
+                    <input name="email" type="email" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-300">Phone (optional)</label>
+                    <input name="phone" class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100" />
+                </div>
+                <button type="submit" class="w-full rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold hover:bg-cyan-400 transition">
+                    Start Verification
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-sm text-slate-400">
+                Staff login? <a class="text-cyan-400 hover:text-cyan-300" href="/accounts/login/">Sign in</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

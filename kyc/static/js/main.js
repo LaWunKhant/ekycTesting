@@ -4,6 +4,9 @@
         let SESSION_ID = null;
         let animationFrameId = null;
         let actualFacingMode = null;
+        const params = new URLSearchParams(window.location.search);
+        const TENANT_SLUG = window.TENANT_SLUG || params.get("tenant") || params.get("tenant_slug");
+        const CUSTOMER_ID = window.CUSTOMER_ID || params.get("customer_id");
         let capturedImages = {
             front: null,
             back: null,
@@ -29,7 +32,11 @@
         async function startVerification() {
               try {
                 // 1) Create session first
-                const res = await fetch("/session/start", { method: "POST" });
+                const res = await fetch("/session/start", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ tenant_slug: TENANT_SLUG, customer_id: CUSTOMER_ID }),
+                });
                 const data = await res.json();
 
                 if (!data.success) {
@@ -211,17 +218,18 @@
             showStatus('loading', 'Uploading and checking image quality...');
 
             try {
-                const response = await fetch('/capture/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        session_id: SESSION_ID,
-                        image: imageData,
-                        type: stepId
-                    })
-                });
+            const response = await fetch('/capture/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: SESSION_ID,
+                    tenant_slug: TENANT_SLUG,
+                    image: imageData,
+                    type: stepId
+                })
+            });
 
                 const data = await response.json();
 
@@ -295,7 +303,7 @@
             await fetch("/start-liveness/", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ session_id: SESSION_ID }),
+              body: JSON.stringify({ session_id: SESSION_ID, tenant_slug: TENANT_SLUG }),
             });
           } catch (e) {
             console.log("start-liveness failed:", e);
@@ -317,7 +325,7 @@
                 await fetch("/liveness-result", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(result),
+                  body: JSON.stringify({ ...result, tenant_slug: TENANT_SLUG, customer_id: CUSTOMER_ID }),
                 });
 
                 if (result.verified) {
@@ -396,6 +404,8 @@
                     },
                     body: JSON.stringify({
                         session_id: SESSION_ID,
+                        tenant_slug: TENANT_SLUG,
+                        customer_id: CUSTOMER_ID,
                         front_image: capturedPaths.front,
                         back_image: capturedPaths.back,
                         selfie_image: capturedPaths.selfie,

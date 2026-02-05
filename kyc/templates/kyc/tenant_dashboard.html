@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tenant Dashboard - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-6xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-semibold">{{ tenant.name }} Dashboard</h1>
+                <p class="text-slate-400 mt-1">Your customers and verification sessions</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/review/" class="text-sm text-cyan-400 hover:text-cyan-300">Review Queue</a>
+                <a href="/accounts/logout/" class="text-sm text-cyan-400 hover:text-cyan-300">Logout</a>
+            </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div class="text-xs text-slate-400">Total Sessions</div>
+                <div class="text-2xl font-semibold">{{ session_count }}</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div class="text-xs text-slate-400">Pending Reviews</div>
+                <div class="text-2xl font-semibold">{{ pending_reviews }}</div>
+            </div>
+        </div>
+
+        <div class="mt-8 overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-900 text-slate-300">
+                    <tr>
+                        <th class="text-left px-4 py-3">Session</th>
+                        <th class="text-left px-4 py-3">Status</th>
+                        <th class="text-left px-4 py-3">Review</th>
+                        <th class="text-left px-4 py-3">Created</th>
+                        <th class="text-left px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for s in sessions %}
+                    <tr class="hover:bg-slate-900/40">
+                        <td class="px-4 py-3 font-mono text-xs">{{ s.id }}</td>
+                        <td class="px-4 py-3">{{ s.status }}</td>
+                        <td class="px-4 py-3">{{ s.review_status }}</td>
+                        <td class="px-4 py-3">{{ s.created_at }}</td>
+                        <td class="px-4 py-3">
+                            <a class="text-cyan-400 hover:text-cyan-300" href="{% url 'review_session_detail' s.id %}">Review</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td class="px-4 py-6 text-slate-400" colspan="5">No sessions yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

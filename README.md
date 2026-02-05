@@ -64,14 +64,17 @@ Audit-friendly logs and structured outputs
   "decision": "VERIFIED"
 }
 
-🚀 How to Run
+🚀 How to Run (Django)
 git clone https://github.com/yourname/moonkyc
 cd moonkyc
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m kyc.moonkyc_server
-ngrok http 3000
+python manage.py migrate
+python manage.py runserver
+
+Optional: import existing Flask sessions
+python manage.py import_flask_db --path kyc/db.sqlite3
 
 ⚠️ Disclaimer
 

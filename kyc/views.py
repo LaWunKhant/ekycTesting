@@ -1,14 +1,18 @@
-from django.shortcuts import render
-from django.http import JsonResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
 import json
 import os
 import cv2
 import numpy as np
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 import subprocess
 import time
+from .models import VerificationSession, Tenant, Customer
+from accounts.models import User
 
 # Global variable to track liveness process
 liveness_process = None
@@ -19,66 +23,186 @@ def index(request):
     return render(request, 'kyc/index.html')
 
 
+def liveness_page(request):
+    """Render the liveness detection page"""
+    return render(request, 'kyc/liveness.html')
+
+
+def _role_denied():
+    return HttpResponseForbidden("Access denied")
+
+
+def _require_user_type(user, allowed_types):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return "super_admin" in allowed_types
+    return user.role in allowed_types
+
+
+@login_required
+def platform_dashboard(request):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+
+    tenants = Tenant.objects.all().order_by("name")
+    context = {
+        "tenants": tenants,
+        "tenant_count": tenants.count(),
+        "user_count": User.objects.count(),
+        "session_count": VerificationSession.objects.count(),
+        "pending_reviews": VerificationSession.objects.filter(review_status="pending").count(),
+    }
+    return render(request, "kyc/platform_dashboard.html", context)
+
+
+@login_required
+def tenant_dashboard(request):
+    if not _require_user_type(request.user, {"owner", "admin", "staff"}):
+        return _role_denied()
+    if not request.user.tenant:
+        return HttpResponseForbidden("No tenant assigned")
+
+    tenant = request.user.tenant
+    sessions = VerificationSession.objects.filter(tenant=tenant).order_by("-created_at")[:200]
+    context = {
+        "tenant": tenant,
+        "sessions": sessions,
+        "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
+        "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
+    }
+    return render(request, "kyc/tenant_dashboard.html", context)
+
+
+@login_required
+def customer_start(request):
+    if request.method == "POST":
+        company_id = request.POST.get("company_id")
+        full_name = request.POST.get("full_name")
+        email = request.POST.get("email")
+        phone = request.POST.get("phone")
+
+        if not company_id or not full_name:
+            return render(request, "kyc/customer_start.html", {"error": "Company ID and name are required."})
+
+        try:
+            tenant = Tenant.objects.get(slug=company_id)
+        except Tenant.DoesNotExist:
+            return render(request, "kyc/customer_start.html", {"error": "Company ID not found."})
+
+        customer = Customer.objects.create(
+            tenant=tenant,
+            full_name=full_name,
+            email=email or None,
+            phone=phone or None,
+        )
+
+        return redirect(f"/verify/?tenant_slug={tenant.slug}&customer_id={customer.id}")
+
+    return render(request, "kyc/customer_start.html")
+
+
+def customer_verify(request):
+    tenant_slug = request.GET.get("tenant_slug")
+    customer_id = request.GET.get("customer_id")
+    if not tenant_slug or not customer_id:
+        return redirect("/customer/start/")
+    return render(request, "kyc/index.html", {"tenant_slug": tenant_slug, "customer_id": customer_id})
+
+
+@login_required
+def review_sessions(request):
+    tenant_slug = request.GET.get("tenant")
+    status = request.GET.get("status")
+    review_status = request.GET.get("review_status")
+
+    if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
+        return _role_denied()
+
+    qs = VerificationSession.objects.select_related("tenant", "reviewed_by").order_by("-created_at")
+
+    user_tenant = _get_user_tenant(request.user)
+    if not request.user.is_superuser:
+        if user_tenant is None:
+            return HttpResponseForbidden("No tenant membership")
+        qs = qs.filter(tenant=user_tenant)
+    elif tenant_slug:
+        qs = qs.filter(tenant__slug=tenant_slug)
+
+    if status:
+        qs = qs.filter(status=status)
+    if review_status:
+        qs = qs.filter(review_status=review_status)
+
+    context = {
+        "sessions": qs[:200],
+        "tenant_slug": tenant_slug or "",
+        "status": status or "",
+        "review_status": review_status or "",
+        "is_superuser": request.user.is_superuser,
+        "user_tenant": user_tenant,
+    }
+    return render(request, "kyc/admin_sessions.html", context)
+
+
+@login_required
+def review_session_detail(request, session_id):
+    session = get_object_or_404(VerificationSession.objects.select_related("tenant", "reviewed_by"), id=session_id)
+
+    if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
+        return _role_denied()
+
+    user_tenant = _get_user_tenant(request.user)
+    if not request.user.is_superuser:
+        if user_tenant is None:
+            return HttpResponseForbidden("No tenant membership")
+        if session.tenant_id != user_tenant.id:
+            return HttpResponseForbidden("Access denied for tenant")
+
+    if request.method == "POST":
+        session.review_status = request.POST.get("review_status", session.review_status)
+        session.review_notes = request.POST.get("review_notes", session.review_notes)
+        session.reviewed_by = request.user
+        session.reviewed_at = datetime.now(timezone.utc)
+        session.save(update_fields=["review_status", "review_notes", "reviewed_by", "reviewed_at"])
+        return redirect("review_session_detail", session_id=session.id)
+
+    context = {
+        "session": session,
+        "front_url": _media_url(session.front_image),
+        "back_url": _media_url(session.back_image),
+        "selfie_url": _media_url(session.selfie_image),
+    }
+    return render(request, "kyc/admin_session_detail.html", context)
+
+
 @csrf_exempt
 def start_liveness(request):
     """
-    Launches the Python liveness detection script
+    Marks liveness as started for the session.
     Endpoint: /start-liveness/
     """
-    global liveness_process
-
     if request.method == 'POST':
         try:
-            # Clean up any old result file
-            result_file = 'liveness_result.json'
-            if os.path.exists(result_file):
-                os.remove(result_file)
-                print("✓ Cleaned up old liveness result")
+            data = json.loads(request.body or "{}")
+            session_id = data.get("session_id")
 
-            # Get the path to liveness_detection.py
-            # Adjust this path to match your project structure
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            script_path = os.path.join(current_dir, '..', 'liveness_detection.py')
-
-            # Alternative: Use absolute path if the above doesn't work
-            # script_path = '/full/path/to/your/liveness_detection.py'
-
-            if not os.path.exists(script_path):
-                return JsonResponse({
-                    'success': False,
-                    'error': f'liveness_detection.py not found at {script_path}'
-                }, status=404)
-
-            print(f"Starting liveness detection: {script_path}")
-
-            # Launch liveness detection in a subprocess
-            # For Windows
-            if os.name == 'nt':
-                liveness_process = subprocess.Popen(
-                    ['python', script_path],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-            # For Mac/Linux
-            else:
-                liveness_process = subprocess.Popen(
-                    ['python3', script_path],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-
-            print(f"✓ Liveness detection started with PID: {liveness_process.pid}")
+            if session_id:
+                try:
+                    session = VerificationSession.objects.get(id=session_id)
+                    session.liveness_running = True
+                    session.updated_at = datetime.now(timezone.utc)
+                    session.save(update_fields=["liveness_running", "updated_at"])
+                except VerificationSession.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Session not found'
+                    }, status=404)
 
             return JsonResponse({
                 'success': True,
-                'message': 'Liveness detection started',
-                'pid': liveness_process.pid
+                'message': 'Liveness detection started'
             })
-
-        except FileNotFoundError:
-            return JsonResponse({
-                'success': False,
-                'error': 'Python interpreter or liveness_detection.py not found. Please check the file path.'
-            }, status=404)
 
         except Exception as e:
             print(f"❌ Error starting liveness: {str(e)}")
@@ -262,6 +386,8 @@ def verify_kyc(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
+            session_id = data.get('session_id')
+            tenant = _resolve_tenant(data)
             front_path = data.get('front_image')
             back_path = data.get('back_image')
             selfie_path = data.get('selfie_image')
@@ -275,6 +401,12 @@ def verify_kyc(request):
             print(f"Liveness: {'✓ Verified' if liveness_verified else '✗ Not verified'}")
             print(f"{'=' * 70}\n")
 
+            if session_id and tenant is None:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Missing or invalid tenant'
+                }, status=400)
+
             if not all([front_path, back_path, selfie_path]):
                 return JsonResponse({
                     'success': False,
@@ -282,6 +414,10 @@ def verify_kyc(request):
                 }, status=400)
 
             # Check if files exist
+            front_path = _resolve_media_path(front_path)
+            back_path = _resolve_media_path(back_path)
+            selfie_path = _resolve_media_path(selfie_path)
+
             if not os.path.exists(front_path):
                 return JsonResponse({
                     'success': False,
@@ -392,7 +528,7 @@ def verify_kyc(request):
                 print(f"  Final Decision: {'✅ VERIFIED' if final_match else '❌ REJECTED'}")
                 print(f"{'=' * 70}\n")
 
-                return JsonResponse({
+                result_payload = {
                     'success': True,
                     'verified': final_match,
                     'similarity': avg_similarity,
@@ -405,7 +541,19 @@ def verify_kyc(request):
                         'models': results,
                         'liveness_status': 'verified' if liveness_verified else 'skipped'
                     }
-                })
+                }
+
+                if session_id:
+                    _update_session_verification(
+                        session_id=session_id,
+                        tenant=tenant,
+                        verified=final_match,
+                        confidence=avg_similarity,
+                        similarity=avg_similarity,
+                        liveness_verified=liveness_verified,
+                    )
+
+                return JsonResponse(result_payload)
 
             except Exception as e:
                 print(f"❌ Face comparison failed: {str(e)}")
@@ -424,6 +572,61 @@ def verify_kyc(request):
             }, status=500)
 
     return JsonResponse({'error': 'Only POST requests allowed'}, status=400)
+
+
+def _resolve_media_path(path_or_name):
+    if not path_or_name:
+        return path_or_name
+    if os.path.exists(path_or_name):
+        return path_or_name
+    return os.path.join(settings.MEDIA_ROOT, path_or_name)
+
+
+def _media_url(filename):
+    if not filename:
+        return ""
+    return f"{settings.MEDIA_URL}{filename}"
+
+
+def _get_user_tenant(user):
+    if not user.is_authenticated:
+        return None
+    return user.tenant
+
+
+def _update_session_verification(session_id, tenant, verified, confidence, similarity, liveness_verified):
+    try:
+        if tenant is None:
+            return
+        session = VerificationSession.objects.get(id=session_id, tenant=tenant)
+    except VerificationSession.DoesNotExist:
+        return
+
+    session.verify_verified = bool(verified)
+    session.verify_confidence = float(confidence or 0)
+    session.verify_similarity = float(similarity or 0)
+    session.liveness_verified = bool(liveness_verified)
+    session.updated_at = datetime.now(timezone.utc)
+    session.save(update_fields=[
+        "verify_verified",
+        "verify_confidence",
+        "verify_similarity",
+        "liveness_verified",
+        "updated_at",
+    ])
+
+
+def _resolve_tenant(data):
+    tenant_id = data.get("tenant_id")
+    tenant_slug = data.get("tenant_slug")
+    if not tenant_id and not tenant_slug:
+        return None
+    try:
+        if tenant_id:
+            return Tenant.objects.get(id=tenant_id)
+        return Tenant.objects.get(slug=tenant_slug)
+    except Tenant.DoesNotExist:
+        return None
 
 
 def check_image_quality(img):
