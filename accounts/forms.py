@@ -23,3 +23,19 @@ class TenantStaffCreationForm(UserCreationForm):
         if not Tenant.objects.filter(slug=company_id).exists():
             raise forms.ValidationError("Company ID not found.")
         return company_id
+
+
+class TenantSignupForm(UserCreationForm):
+    tenant_name = forms.CharField(required=True, label="Company Name")
+    tenant_slug = forms.SlugField(required=True, label="Company ID")
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "tenant_name", "tenant_slug", "password1", "password2")
+
+    def clean_tenant_slug(self):
+        slug = self.cleaned_data.get("tenant_slug")
+        if Tenant.objects.filter(slug=slug).exists():
+            raise forms.ValidationError("Company ID already exists.")
+        return slug

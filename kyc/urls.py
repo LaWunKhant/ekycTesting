@@ -10,6 +10,7 @@ urlpatterns = [
     path('review/<uuid:session_id>/', views.review_session_detail, name='review_session_detail'),
     path('platform/', views.platform_dashboard, name='platform_dashboard'),
     path('dashboard/', views.tenant_dashboard, name='tenant_dashboard'),
+    path('dashboard/team/', views.tenant_team, name='tenant_team'),
     path('verify/', views.customer_verify, name='customer_verify'),
     path('customer/start/', views.customer_start, name='customer_start'),
 

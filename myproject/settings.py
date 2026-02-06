@@ -4,7 +4,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "dev-secret-key-change-me"
 DEBUG = True
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app"]
 
 INSTALLED_APPS = [
     "accounts",
@@ -90,3 +90,7 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 AUTH_USER_MODEL = "accounts.User"
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.ngrok-free.app",
+]

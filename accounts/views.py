@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_protect
 
 from kyc.models import Tenant
-from .forms import UnifiedLoginForm, TenantStaffCreationForm
+from .forms import UnifiedLoginForm, TenantStaffCreationForm, TenantSignupForm
 
 
 @csrf_protect
@@ -43,3 +43,26 @@ def home_redirect(request):
 def logout_view(request):
     logout(request)
     return redirect("login")
+
+
+@csrf_protect
+def signup_view(request):
+    if request.method == "POST":
+        form = TenantSignupForm(request.POST)
+        if form.is_valid():
+            tenant_name = form.cleaned_data.get("tenant_name")
+            tenant_slug = form.cleaned_data.get("tenant_slug")
+            tenant = Tenant.objects.create(name=tenant_name, slug=tenant_slug)
+
+            user = form.save(commit=False)
+            user.role = "owner"
+            user.tenant = tenant
+            user.company_id = tenant_slug
+            user.is_staff = True
+            user.save()
+            login(request, user)
+            return redirect("tenant_dashboard")
+    else:
+        form = TenantSignupForm()
+
+    return render(request, "registration/signup.html", {"form": form})

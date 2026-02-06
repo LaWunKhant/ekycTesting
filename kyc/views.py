@@ -13,6 +13,7 @@ import subprocess
 import time
 from .models import VerificationSession, Tenant, Customer
 from accounts.models import User
+from django import forms
 
 # Global variable to track liveness process
 liveness_process = None
@@ -72,6 +73,49 @@ def tenant_dashboard(request):
         "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
     }
     return render(request, "kyc/tenant_dashboard.html", context)
+
+
+class StaffCreateForm(forms.Form):
+    username = forms.CharField(max_length=150)
+    email = forms.EmailField()
+    role = forms.ChoiceField(choices=[("owner", "Owner"), ("admin", "Admin"), ("staff", "Staff")])
+    password = forms.CharField(widget=forms.PasswordInput)
+
+
+@login_required
+def tenant_team(request):
+    if not _require_user_type(request.user, {"owner", "admin"}):
+        return _role_denied()
+    if not request.user.tenant:
+        return HttpResponseForbidden("No tenant assigned")
+
+    tenant = request.user.tenant
+    staff_qs = User.objects.filter(tenant=tenant).order_by("role", "username")
+
+    if request.method == "POST":
+        form = StaffCreateForm(request.POST)
+        if form.is_valid():
+            role = form.cleaned_data["role"]
+            if role == "owner" and request.user.role != "owner":
+                return HttpResponseForbidden("Only owners can create other owners.")
+            User.objects.create_user(
+                username=form.cleaned_data["username"],
+                email=form.cleaned_data["email"],
+                password=form.cleaned_data["password"],
+                role=role,
+                tenant=tenant,
+                is_staff=True,
+            )
+            return redirect("tenant_team")
+    else:
+        form = StaffCreateForm()
+
+    context = {
+        "tenant": tenant,
+        "staff": staff_qs,
+        "form": form,
+    }
+    return render(request, "kyc/tenant_team.html", context)
 
 
 @login_required

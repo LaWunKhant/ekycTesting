@@ -46,11 +46,22 @@
                 </div>
 
                 <div>
-                    <label for="id_company_id" class="block text-sm font-medium text-slate-300">Company ID (Tenant)</label>
+                    <label for="id_tenant_name" class="block text-sm font-medium text-slate-300">Company Name</label>
                     <input
                         type="text"
-                        name="company_id"
-                        id="id_company_id"
+                        name="tenant_name"
+                        id="id_tenant_name"
+                        required
+                        class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    />
+                </div>
+
+                <div>
+                    <label for="id_tenant_slug" class="block text-sm font-medium text-slate-300">Company ID</label>
+                    <input
+                        type="text"
+                        name="tenant_slug"
+                        id="id_tenant_slug"
                         placeholder="acme"
                         required
                         class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"

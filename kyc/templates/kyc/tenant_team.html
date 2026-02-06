@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Team - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-5xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-semibold">{{ tenant.name }} Team</h1>
+                <p class="text-slate-400 mt-1">Manage tenant staff accounts</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/dashboard/" class="text-sm text-cyan-400 hover:text-cyan-300">Back to Dashboard</a>
+                <a href="/accounts/logout/" class="text-sm text-cyan-400 hover:text-cyan-300">Logout</a>
+            </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                <h2 class="text-lg font-semibold">Add Staff Member</h2>
+                <form method="post" class="mt-4 space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs text-slate-400">Username</label>
+                        <input name="username" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Email</label>
+                        <input name="email" type="email" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Role</label>
+                        <select name="role" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+                            <option value="owner">Owner</option>
+                            <option value="admin">Admin</option>
+                            <option value="staff">Staff</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Password</label>
+                        <input name="password" type="password" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <button class="w-full rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold">Add Staff</button>
+                </form>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                <h2 class="text-lg font-semibold">Current Staff</h2>
+                <div class="mt-4 divide-y divide-slate-800">
+                    {% for u in staff %}
+                        <div class="py-3 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium">{{ u.username }}</div>
+                                <div class="text-xs text-slate-400">{{ u.email }}</div>
+                            </div>
+                            <div class="text-xs text-slate-300">{{ u.role }}</div>
+                        </div>
+                    {% empty %}
+                        <div class="text-sm text-slate-400">No staff yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
