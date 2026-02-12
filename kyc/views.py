@@ -11,9 +11,13 @@ import base64
 from datetime import datetime, timezone
 import subprocess
 import time
-from .models import VerificationSession, Tenant, Customer
+from .models import VerificationSession, Tenant, Customer, VerificationLink
 from accounts.models import User
 from django import forms
+from django.utils import timezone as dj_timezone
+from datetime import timedelta
+from django.conf import settings as django_settings
+from django.core.mail import send_mail
 
 # Global variable to track liveness process
 liveness_process = None
@@ -66,20 +70,69 @@ def tenant_dashboard(request):
 
     tenant = request.user.tenant
     sessions = VerificationSession.objects.filter(tenant=tenant).order_by("-created_at")[:200]
+    latest_link = None
+
+    if request.method == "POST" and request.POST.get("action") == "create_customer":
+        customer_form = CustomerCreateForm(request.POST)
+        if customer_form.is_valid():
+            customer = Customer.objects.create(
+                tenant=tenant,
+                full_name=customer_form.cleaned_data["full_name"],
+                email=customer_form.cleaned_data["email"] or None,
+                phone=customer_form.cleaned_data["phone"] or None,
+                external_ref=customer_form.cleaned_data["external_ref"] or None,
+            )
+            expires_at = dj_timezone.now() + timedelta(days=2)
+            latest_link = VerificationLink.objects.create(
+                tenant=tenant,
+                customer=customer,
+                expires_at=expires_at,
+            )
+            if customer.email:
+                link_url = ""
+                public_base = getattr(django_settings, "PUBLIC_BASE_URL", "").rstrip("/")
+                if public_base:
+                    link_url = f"{public_base}/verify/start/{latest_link.token}/"
+                else:
+                    link_url = f"{request.scheme}://{request.get_host()}/verify/start/{latest_link.token}/"
+
+                send_mail(
+                    subject="Your KYC Verification",
+                    message=(
+                        f"Hello {customer.full_name},\n\n"
+                        f"Please complete your verification using this link:\n{link_url}\n\n"
+                        "This link expires in 48 hours."
+                    ),
+                    from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", None),
+                    recipient_list=[customer.email],
+                    fail_silently=True,
+                )
+    else:
+        customer_form = CustomerCreateForm()
+
     context = {
         "tenant": tenant,
         "sessions": sessions,
         "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
         "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
+        "customer_form": customer_form,
+        "latest_link": latest_link,
+        "public_base_url": getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/"),
     }
     return render(request, "kyc/tenant_dashboard.html", context)
 
 
 class StaffCreateForm(forms.Form):
-    username = forms.CharField(max_length=150)
     email = forms.EmailField()
     role = forms.ChoiceField(choices=[("owner", "Owner"), ("admin", "Admin"), ("staff", "Staff")])
     password = forms.CharField(widget=forms.PasswordInput)
+
+
+class CustomerCreateForm(forms.Form):
+    full_name = forms.CharField(max_length=255)
+    email = forms.EmailField(required=False)
+    phone = forms.CharField(required=False)
+    external_ref = forms.CharField(required=False)
 
 
 @login_required
@@ -90,7 +143,7 @@ def tenant_team(request):
         return HttpResponseForbidden("No tenant assigned")
 
     tenant = request.user.tenant
-    staff_qs = User.objects.filter(tenant=tenant).order_by("role", "username")
+    staff_qs = User.objects.filter(tenant=tenant).order_by("role", "email")
 
     if request.method == "POST":
         form = StaffCreateForm(request.POST)
@@ -99,7 +152,6 @@ def tenant_team(request):
             if role == "owner" and request.user.role != "owner":
                 return HttpResponseForbidden("Only owners can create other owners.")
             User.objects.create_user(
-                username=form.cleaned_data["username"],
                 email=form.cleaned_data["email"],
                 password=form.cleaned_data["password"],
                 role=role,
@@ -154,6 +206,18 @@ def customer_verify(request):
     return render(request, "kyc/index.html", {"tenant_slug": tenant_slug, "customer_id": customer_id})
 
 
+def verify_link(request, token):
+    try:
+        link = VerificationLink.objects.select_related("tenant", "customer").get(token=token)
+    except VerificationLink.DoesNotExist:
+        return HttpResponseForbidden("Invalid or expired link")
+
+    if link.expires_at and link.expires_at < dj_timezone.now():
+        return HttpResponseForbidden("Link expired")
+
+    return redirect(f"/verify/?tenant_slug={link.tenant.slug}&customer_id={link.customer.id}")
+
+
 @login_required
 def review_sessions(request):
     tenant_slug = request.GET.get("tenant")
@@ -163,7 +227,7 @@ def review_sessions(request):
     if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
         return _role_denied()
 
-    qs = VerificationSession.objects.select_related("tenant", "reviewed_by").order_by("-created_at")
+    qs = VerificationSession.objects.select_related("tenant", "reviewed_by", "customer").order_by("-created_at")
 
     user_tenant = _get_user_tenant(request.user)
     if not request.user.is_superuser:
@@ -191,7 +255,9 @@ def review_sessions(request):
 
 @login_required
 def review_session_detail(request, session_id):
-    session = get_object_or_404(VerificationSession.objects.select_related("tenant", "reviewed_by"), id=session_id)
+    session = get_object_or_404(
+        VerificationSession.objects.select_related("tenant", "reviewed_by", "customer"), id=session_id
+    )
 
     if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
         return _role_denied()
@@ -213,9 +279,10 @@ def review_session_detail(request, session_id):
 
     context = {
         "session": session,
-        "front_url": _media_url(session.front_image),
-        "back_url": _media_url(session.back_image),
-        "selfie_url": _media_url(session.selfie_image),
+        "customer": session.customer,
+        "front_url": _media_url(session.document_front_url or session.front_image),
+        "back_url": _media_url(session.document_back_url or session.back_image),
+        "selfie_url": _media_url(session.selfie_url or session.selfie_image),
     }
     return render(request, "kyc/admin_session_detail.html", context)
 
@@ -451,10 +518,10 @@ def verify_kyc(request):
                     'error': 'Missing or invalid tenant'
                 }, status=400)
 
-            if not all([front_path, back_path, selfie_path]):
+            if not front_path or not selfie_path:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Missing required images'
+                    'error': 'Missing required images (front and selfie)'
                 }, status=400)
 
             # Check if files exist

@@ -57,8 +57,11 @@
             <table class="w-full text-sm">
                 <thead class="bg-slate-900 text-slate-300">
                     <tr>
-                        <th class="text-left px-4 py-3">Session</th>
-                        <th class="text-left px-4 py-3">Tenant</th>
+                        <th class="text-left px-4 py-3">Customer</th>
+                        <th class="text-left px-4 py-3">Customer ID</th>
+                        <th class="text-left px-4 py-3">Session ID</th>
+                        <th class="text-left px-4 py-3">Citizenship</th>
+                        <th class="text-left px-4 py-3">Document</th>
                         <th class="text-left px-4 py-3">Status</th>
                         <th class="text-left px-4 py-3">Liveness</th>
                         <th class="text-left px-4 py-3">AI Verify</th>
@@ -70,8 +73,26 @@
                 <tbody class="divide-y divide-slate-800">
                     {% for s in sessions %}
                     <tr class="hover:bg-slate-900/40">
-                        <td class="px-4 py-3 font-mono text-xs">{{ s.id }}</td>
-                        <td class="px-4 py-3">{{ s.tenant.slug }}</td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm font-medium text-slate-100">
+                                {{ s.customer.full_name|default:"Unknown" }}
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                {{ s.customer.email|default:"No email" }}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs text-slate-300">
+                            {{ s.customer.id|default:"-" }}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs text-slate-300">
+                            {{ s.id }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-300">
+                            {{ s.customer.citizenship_type|default:"-" }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-300">
+                            {{ s.document_type|default:"-" }}
+                        </td>
                         <td class="px-4 py-3">{{ s.status }}</td>
                         <td class="px-4 py-3">
                             {% if s.liveness_verified %}
@@ -95,7 +116,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td class="px-4 py-6 text-slate-400" colspan="8">No sessions found.</td>
+                        <td class="px-4 py-6 text-slate-400" colspan="11">No sessions found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -8,6 +8,8 @@ from .models import User
 class UnifiedLoginForm(AuthenticationForm):
     company_id = forms.CharField(required=False, label="Company ID")
 
+    username = forms.EmailField(label="Email")
+
 
 class TenantStaffCreationForm(UserCreationForm):
     company_id = forms.CharField(required=True, label="Company ID")
@@ -16,7 +18,7 @@ class TenantStaffCreationForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ("username", "email", "company_id", "role", "password1", "password2")
+        fields = ("email", "company_id", "role", "password1", "password2")
 
     def clean_company_id(self):
         company_id = self.cleaned_data.get("company_id")
@@ -32,7 +34,7 @@ class TenantSignupForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ("username", "email", "tenant_name", "tenant_slug", "password1", "password2")
+        fields = ("email", "tenant_name", "tenant_slug", "password1", "password2")
 
     def clean_tenant_slug(self):
         slug = self.cleaned_data.get("tenant_slug")

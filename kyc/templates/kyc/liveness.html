@@ -4,68 +4,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liveness Detection</title>
+    <title>Liveness Detection - eKYC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: radial-gradient(1200px circle at 10% 10%, rgba(16, 185, 129, 0.25), transparent 55%),
+                        radial-gradient(900px circle at 90% 20%, rgba(20, 184, 166, 0.25), transparent 50%),
+                        linear-gradient(135deg, #072a2a 0%, #0f766e 45%, #0ea5a4 100%) !important;
+            min-height: 100vh;
+        }
+    </style>
     <link rel="stylesheet" href="{% static 'css/liveness.css' %}">
-
-
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎭 Liveness Detection</h1>
-            <p>Verify you're a real person</p>
+<body class="min-h-screen">
+    <!-- Background decorative elements (matching main page) -->
+    <div class="min-h-screen bg-gradient-to-br from-teal-950 via-teal-800 to-emerald-600">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-32 -left-16 h-72 w-72 rounded-full bg-emerald-200/15 blur-3xl"></div>
+            <div class="absolute top-40 -right-24 h-96 w-96 rounded-full bg-teal-200/20 blur-3xl"></div>
+            <div class="absolute bottom-20 left-1/3 h-80 w-80 rounded-full bg-cyan-200/15 blur-3xl"></div>
         </div>
 
-        <div class="content">
-            <div id="loadingScreen" class="loading">
-                <div class="spinner"></div>
-                <p>Loading AI models...</p>
-                <p style="font-size: 12px; color: #666; margin-top: 10px;">This may take 10-30 seconds...</p>
-            </div>
+        <!-- Main container -->
+        <div class="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-10">
+            <div class="rounded-3xl border border-white/20 bg-white/95 shadow-2xl shadow-slate-900/40 backdrop-blur-sm">
 
-            <div id="mainScreen" class="hidden">
-                <div class="video-container">
-                    <video id="video" autoplay playsinline muted></video>
-                    <div class="overlay">
-                        <div class="face-guide"></div>
-                        <div class="instruction-box" id="instruction">Position your face in the oval</div>
+                <!-- Header -->
+                <div class="header bg-gradient-to-r from-teal-700 via-teal-700 to-emerald-600 px-8 py-7 text-white rounded-t-3xl">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <div class="text-xs uppercase tracking-[0.3em] text-white/80">Step 5 of 5</div>
+                            <h1 class="mt-2 text-3xl font-bold tracking-tight">Liveness Check</h1>
+                            <p class="mt-2 text-sm text-white/90">Verify you are present</p>
+                            <p class="mt-1 text-xs text-white/70">Quick movement prompts confirm a live face.</p>
+                        </div>
+                        <div class="rounded-full border border-white/40 bg-white/20 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm">
+                            🔒 Secure Session
+                        </div>
                     </div>
                 </div>
 
-                <div class="challenge-list">
-                    <div class="challenge-item" id="challenge-center">
-                        <span class="challenge-icon">👤</span>
-                        <span>Face detected</span>
+                <!-- Content -->
+                <div class="content px-8 py-8">
+                    <!-- Loading Screen -->
+                    <div id="loadingScreen" class="loading">
+                        <div class="spinner"></div>
+                        <p class="text-base font-semibold text-slate-800">Loading AI models...</p>
+                        <p class="mt-2 text-sm text-slate-600">This may take 10-30 seconds on first load.</p>
+                        <p class="mt-1 text-xs text-slate-500">Please wait while we initialize the face detection system.</p>
                     </div>
-                    <div class="challenge-item" id="challenge-left">
-                        <span class="challenge-icon">⬅️</span>
-                        <span>Turn head LEFT</span>
-                    </div>
-                    <div class="challenge-item" id="challenge-right">
-                        <span class="challenge-icon">➡️</span>
-                        <span>Turn head RIGHT</span>
-                    </div>
-                    <div class="challenge-item" id="challenge-mouth">
-                        <span class="challenge-icon">😮</span>
-                        <span>Open mouth WIDE</span>
+
+                    <!-- Main Screen -->
+                    <div id="mainScreen" class="hidden">
+                        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)] lg:items-start">
+
+                            <!-- Video Feed -->
+                            <div class="space-y-4">
+                                <div class="video-container shadow-xl shadow-slate-900/30">
+                                    <video id="video" autoplay playsinline muted></video>
+                                    <div class="overlay">
+                                        <div class="face-guide"></div>
+                                        <div class="instruction-box" id="instruction">Position your face in the oval</div>
+                                    </div>
+                                </div>
+
+                                <!-- Tips -->
+                                <div class="rounded-xl bg-teal-50 border border-teal-200 p-4">
+                                    <h3 class="text-sm font-semibold text-teal-900 mb-2">💡 Tips for best results</h3>
+                                    <ul class="text-xs text-teal-800 space-y-1">
+                                        <li>• Ensure good lighting on your face</li>
+                                        <li>• Remove sunglasses or face coverings</li>
+                                        <li>• Keep your face centered in the oval</li>
+                                        <li>• Follow the prompts slowly and clearly</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Right Sidebar -->
+                            <div class="space-y-5">
+                                <!-- Challenge List -->
+                                <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+                                    <h2 class="text-base font-bold text-slate-800 mb-1">Live prompts</h2>
+                                    <p class="text-xs text-slate-600 mb-4">Complete all steps to verify</p>
+
+                                    <div class="challenge-list space-y-3">
+                                        <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-center">
+                                            <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">1</span>
+                                            <span class="font-medium">Face detected</span>
+                                        </div>
+
+                                        <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-left">
+                                            <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">2</span>
+                                            <span class="font-medium">Turn head left</span>
+                                        </div>
+
+                                        <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-right">
+                                            <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">3</span>
+                                            <span class="font-medium">Turn head right</span>
+                                        </div>
+
+                                        <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-mouth">
+                                            <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">4</span>
+                                            <span class="font-medium">Open mouth wide</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Status Message -->
+                                <div id="statusMessage" class="status-message info">
+                                    Follow the instructions to complete verification
+                                </div>
+
+                                <!-- Start Button -->
+                                <button
+                                    id="startBtn"
+                                    class="btn btn-primary w-full rounded-xl bg-teal-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-teal-500/40 hover:bg-teal-700 transition-all"
+                                    onclick="startDetection()">
+                                    Start Liveness Check
+                                </button>
+
+                                <!-- Debug Info (hidden by default) -->
+                                <div id="debugInfo" class="debug-info hidden"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="statusMessage" class="status-message info">
-                    Follow the instructions to complete verification
+                <!-- Footer (optional) -->
+                <div class="px-8 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-3xl">
+                    <p class="text-xs text-slate-600 text-center">
+                        Your privacy is protected. Face data is processed locally and not stored.
+                    </p>
                 </div>
-
-                <button id="startBtn" class="btn btn-primary" onclick="startDetection()">
-                    Start Liveness Check
-                </button>
-
-                <div id="debugInfo" class="debug-info hidden"></div>
             </div>
         </div>
     </div>
+
     <script src="{% static 'js/liveness.js' %}"></script>
 </body>
 </html>

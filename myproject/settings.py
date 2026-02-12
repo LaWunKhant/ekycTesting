@@ -94,3 +94,12 @@ AUTH_USER_MODEL = "accounts.User"
 CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.app",
 ]
+
+# Optional: set this to your ngrok URL for shareable links
+PUBLIC_BASE_URL = "https://d97d-130-62-79-44.ngrok-free.app"
+
+# Looking to send emails in production? Check out our Email API/SMTP product!
+EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
+EMAIL_HOST_USER = '8482e1f1832286'
+EMAIL_HOST_PASSWORD = 'ffaace64349614'
+EMAIL_PORT = '2525'

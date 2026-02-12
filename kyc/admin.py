@@ -21,8 +21,8 @@ class VerificationSessionAdmin(admin.ModelAdmin):
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "slug", "created_at")
-    search_fields = ("name", "slug")
+    list_display = ("id", "uuid", "name", "slug", "created_at")
+    search_fields = ("name", "slug", "uuid")
 
 
 @admin.register(Customer)

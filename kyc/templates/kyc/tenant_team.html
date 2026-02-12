@@ -26,10 +26,6 @@
                 <form method="post" class="mt-4 space-y-4">
                     {% csrf_token %}
                     <div>
-                        <label class="block text-xs text-slate-400">Username</label>
-                        <input name="username" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
-                    </div>
-                    <div>
                         <label class="block text-xs text-slate-400">Email</label>
                         <input name="email" type="email" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
                     </div>
@@ -55,8 +51,7 @@
                     {% for u in staff %}
                         <div class="py-3 flex items-center justify-between">
                             <div>
-                                <div class="text-sm font-medium">{{ u.username }}</div>
-                                <div class="text-xs text-slate-400">{{ u.email }}</div>
+                                <div class="text-sm font-medium">{{ u.email }}</div>
                             </div>
                             <div class="text-xs text-slate-300">{{ u.role }}</div>
                         </div>

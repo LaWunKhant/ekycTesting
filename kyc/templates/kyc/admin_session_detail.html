@@ -20,7 +20,7 @@
         <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
                 <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <div class="text-xs text-slate-400">Tenant</div>
                             <div class="text-lg">{{ session.tenant.slug }}</div>
@@ -33,7 +33,81 @@
                             <div class="text-xs text-slate-400">Review Status</div>
                             <div class="text-lg">{{ session.review_status }}</div>
                         </div>
+                        <div>
+                            <div class="text-xs text-slate-400">Document</div>
+                            <div class="text-lg">{{ session.document_type|default:"-" }}</div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                    <div class="text-sm text-slate-300 mb-3">Customer Details</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-slate-400">Full name</div>
+                            <div>{{ customer.full_name|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Full name (Kana)</div>
+                            <div>{{ customer.full_name_kana|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Date of birth</div>
+                            <div>{{ customer.date_of_birth|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Gender</div>
+                            <div>{{ customer.gender|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Nationality</div>
+                            <div>{{ customer.nationality|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Citizenship type</div>
+                            <div>{{ customer.citizenship_type|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Email</div>
+                            <div>{{ customer.email|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Phone</div>
+                            <div>{{ customer.phone|default:"-" }}</div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <div class="text-slate-400">Address</div>
+                            <div>
+                                {{ customer.postal_code|default:"" }} {{ customer.prefecture|default:"" }}
+                                {{ customer.city|default:"" }} {{ customer.street_address|default:"" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                    <div class="text-sm text-slate-300 mb-3">Document Data</div>
+                    {% if session.document_data %}
+                        <pre class="whitespace-pre-wrap text-xs text-slate-300">{{ session.document_data|safe }}</pre>
+                    {% else %}
+                        <div class="text-sm text-slate-400">No document data captured.</div>
+                    {% endif %}
+                    {% if session.residence_status or session.residence_card_number or session.residence_card_expiry %}
+                        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <div class="text-slate-400">Residence status</div>
+                                <div>{{ session.residence_status|default:"-" }}</div>
+                            </div>
+                            <div>
+                                <div class="text-slate-400">Residence card number</div>
+                                <div>{{ session.residence_card_number|default:"-" }}</div>
+                            </div>
+                            <div>
+                                <div class="text-slate-400">Residence card expiry</div>
+                                <div>{{ session.residence_card_expiry|default:"-" }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

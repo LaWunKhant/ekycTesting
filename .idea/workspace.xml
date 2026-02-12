@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="d10bc6ed-758c-4cf8-a531-d88178eb4c7f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/accounts/admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/admin.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/forms.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/forms.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/migrations/0001_initial.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/migrations/0002_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/migrations/0002_initial.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/templates/registration/login.html" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/templates/registration/login.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/admin.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/api_views.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/api_views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/migrations/0001_initial.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/migrations/0001_initial.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/static/css/liveness.css" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/static/css/liveness.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/static/css/main.css" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/static/css/main.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/static/js/main.js" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/static/js/main.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/admin_session_detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/admin_session_detail.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/admin_sessions.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/admin_sessions.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/liveness.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/liveness.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/tenant_dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/tenant_dashboard.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/tenant_team.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/tenant_team.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/myproject/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/settings.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_/Users/cipc-002/Herd/PythonProject" value="37Jmx1aYj3Z33HjLDhonWWF12yx" />
+    </persistenceIdMap>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/kyc/moonkyc_server.py" root0="SKIP_HIGHLIGHTING" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
+  <component name="ProjectId" id="37Jmx1aYj3Z33HjLDhonWWF12yx" />
+  <component name="ProjectViewState">
+    <option name="autoscrollToSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/cipc-002/Herd/PythonProject/kyc",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
+    "settings.editor.splitter.proportion": "0.24872579"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/kyc" />
+      <recent name="$PROJECT_DIR$/kyc/templates/kyc" />
+      <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/kyc/routes" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-4762d8aabb82-6d6dccd035ac-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.30387.173" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="d10bc6ed-758c-4cf8-a531-d88178eb4c7f" name="Changes" comment="" />
+      <created>1766629791281</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1766629791281</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>

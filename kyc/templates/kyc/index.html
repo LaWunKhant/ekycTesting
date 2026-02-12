@@ -5,9 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MoonKYC - Document Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+    </style>
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
 </head>
-<body>
+<body class="min-h-screen bg-slate-50 text-slate-900">
     {% if tenant_slug %}
     <script>
         window.TENANT_SLUG = "{{ tenant_slug }}";
@@ -18,92 +27,280 @@
         window.CUSTOMER_ID = "{{ customer_id }}";
     </script>
     {% endif %}
-    <div class="container">
-        <div class="header">
-            <h1>🌙 MoonEKYC</h1>
-            <p>Secure Identity Verification System</p>
+    <div class="min-h-screen bg-gradient-to-br from-[#0f766e] via-[#14b8a6] to-[#1e3a8a]">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-32 -left-20 h-80 w-80 rounded-full bg-teal-200/20 blur-3xl"></div>
+            <div class="absolute top-32 -right-20 h-96 w-96 rounded-full bg-cyan-200/30 blur-3xl"></div>
+            <div class="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-blue-200/30 blur-3xl"></div>
         </div>
-
-        <div class="content">
-            <div class="step-indicator">
-                <div class="step" id="step1">1</div>
-                <div class="step" id="step2">2</div>
-                <div class="step" id="step3">3</div>
-                <div class="step" id="step4">4</div>
-                <div class="step" id="step5">5</div>
-            </div>
-
-            <div class="start-screen" id="startScreen">
-                <div class="document-icon">📄</div>
-                <h2>Welcome to Identity Verification</h2>
-                <p>We'll guide you through a secure verification process</p>
-
-                <div class="requirements">
-                    <h3>You'll need:</h3>
-                    <ul>
-                        <li>Your ID card (front and back)</li>
-                        <li>Good lighting</li>
-                        <li>Camera permission</li>
-                        <li>3-4 minutes of your time</li>
-                    </ul>
-                </div>
-
-                <button class="btn btn-primary" onclick="startVerification()">Start Verification</button>
-            </div>
-
-            <div class="camera-container" id="cameraContainer">
-                <video id="video" autoplay playsinline></video>
-                <canvas id="canvas" style="display:none;"></canvas>
-                <div class="camera-overlay">
-                    <div class="guide-box" id="guideBox"></div>
-                    <div class="camera-instructions" id="instructions">Position your ID within the frame</div>
-                </div>
-                <button class="capture-btn" id="captureBtn">📷</button>
-            </div>
-
-            <div class="preview-container" id="previewContainer">
-                <img id="previewImage" class="preview-image" alt="Captured image">
-                <div class="button-group">
-                    <button class="btn btn-secondary" onclick="retakePhoto()">🔄 Retake</button>
-                    <button class="btn btn-primary" onclick="confirmPhoto()">✓ Use This Photo</button>
-                </div>
-            </div>
-
-            <div class="liveness-screen" id="livenessScreen">
-                <div class="liveness-icon">🎭</div>
-                <h2>Liveness Detection</h2>
-                <p>Let's verify you're a real person</p>
-
-                <div class="liveness-instructions">
-                    <h3>📋 What you'll do:</h3>
-                    <ol>
-                        <li>Look at the center of your screen</li>
-                        <li>Turn your head <strong>LEFT</strong></li>
-                        <li>Turn your head <strong>RIGHT</strong></li>
-                        <li><strong>Open your mouth WIDE</strong></li>
-                    </ol>
-
-                    <div class="liveness-note">
-                        <strong>⚡ Note:</strong> This will open a separate window for liveness detection.
-                        Please complete the challenges and return here when done.
+        <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-10">
+            <div class="rounded-3xl border border-slate-200 bg-white/85 shadow-2xl shadow-slate-200/60 backdrop-blur">
+                <div class="header border-b border-slate-200 px-8 py-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">MoonEKYC</div>
+                            <h1 class="mt-2 text-2xl font-semibold tracking-tight">Secure Identity Verification</h1>
+                            <p class="mt-1 text-sm text-slate-500">Fast checks with privacy-first safeguards.</p>
+                        </div>
+                        <div class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Powered by MoonEKYC</div>
                     </div>
                 </div>
 
-                <div class="button-group">
-                    <button class="btn btn-secondary" onclick="skipLiveness()">Skip (Not Recommended)</button>
-                    <button class="btn btn-primary" onclick="startLivenessDetection()">🚀 Start Liveness Check</button>
+                <div class="content px-8 py-6">
+                    <div class="step-indicator mb-8">
+                        <div class="step-track">
+                            <div class="step-progress" id="stepProgress"></div>
+                        </div>
+                        <div class="step-meta">
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="stepLabel">Step 1 of 13</div>
+                            <div class="text-sm font-semibold text-slate-800" id="stepTitle">Welcome</div>
+                        </div>
+                    </div>
+
+                    <div class="screen active" id="welcomeScreen" data-screen>
+                        <div class="text-center">
+                            <div class="document-icon mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                                <svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75h6.379c.398 0 .78.158 1.06.439l2.872 2.872c.281.281.439.663.439 1.06V19.5A1.5 1.5 0 0 1 16.75 21h-9A1.5 1.5 0 0 1 6.25 19.5V5.25A1.5 1.5 0 0 1 7.5 3.75z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3.75V7.5H17.25" />
+                                </svg>
+                            </div>
+                            <h2 class="text-xl font-semibold">Welcome to identity verification</h2>
+                            <p class="mt-2 text-sm text-slate-600">We will guide you through a short, secure verification flow.</p>
+
+                            <div class="requirements mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
+                                <h3 class="text-sm font-semibold text-slate-700">What you will need</h3>
+                                <ul class="mt-3 space-y-2 text-sm text-slate-600">
+                                    <li class="flex items-start gap-3">
+                                        <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        Your ID document
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        Good lighting and a steady camera
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        Camera permission enabled in your browser
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        About three minutes to finish
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startFlow()">Start Verification</button>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="citizenshipScreen" data-screen>
+                        <div class="text-center">
+                            <h2 class="text-xl font-semibold">Are you a Japanese or foreign resident?</h2>
+                            <p class="mt-2 text-sm text-slate-600">This helps us show the right document options.</p>
+                            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                                <button class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50" onclick="selectCitizenship('japanese')">
+                                    Japanese Citizen
+                                </button>
+                                <button class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50" onclick="selectCitizenship('foreign')">
+                                    Foreign Resident
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="documentScreen" data-screen>
+                        <h2 class="text-xl font-semibold">Select your document</h2>
+                        <p class="mt-2 text-sm text-slate-600">Only documents relevant to your residency are shown.</p>
+                        <div class="mt-6 grid gap-3 sm:grid-cols-2" id="documentOptions"></div>
+                    </div>
+
+                    <div class="screen hidden" id="guideScreen" data-screen>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Document Guide</div>
+                            <h2 class="mt-2 text-xl font-semibold" id="guideTitle">Prepare your document</h2>
+                            <p class="mt-2 text-sm text-slate-600" id="guideBody">Please prepare your document before continuing.</p>
+                        </div>
+                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="goToPersonalInfo()">Continue</button>
+                    </div>
+
+                    <div class="screen hidden" id="personalScreen" data-screen>
+                        <h2 class="text-xl font-semibold">Personal information</h2>
+                        <p class="mt-2 text-sm text-slate-600">Enter your legal name and identity details.</p>
+                        <form class="mt-6 grid gap-4" id="personalForm">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600">Full name</label>
+                                <input id="fullName" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" required>
+                            </div>
+                            <div id="kanaField" class="hidden">
+                                <label class="text-xs font-semibold text-slate-600">Full name (Kana)</label>
+                                <input id="fullNameKana" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Date of birth</label>
+                                    <input id="dateOfBirth" type="date" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Gender</label>
+                                    <select id="gender" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                        <option value="">Select</option>
+                                        <option value="female">Female</option>
+                                        <option value="male">Male</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600">Nationality</label>
+                                <input id="nationality" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                            </div>
+                            <div id="documentSpecificFields" class="grid gap-4"></div>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="savePersonalInfo()">Continue</button>
+                        </form>
+                    </div>
+
+                    <div class="screen hidden" id="addressScreen" data-screen>
+                        <h2 class="text-xl font-semibold">Address information</h2>
+                        <p class="mt-2 text-sm text-slate-600">Share your current address.</p>
+                        <form class="mt-6 grid gap-4" id="addressForm">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Postal code</label>
+                                    <input id="postalCode" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Prefecture</label>
+                                    <input id="prefecture" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                </div>
+                            </div>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">City</label>
+                                    <input id="city" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-slate-600">Street address</label>
+                                    <input id="streetAddress" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveAddressInfo()">Continue</button>
+                        </form>
+                    </div>
+
+                    <div class="screen hidden" id="contactScreen" data-screen>
+                        <h2 class="text-xl font-semibold">Contact information</h2>
+                        <p class="mt-2 text-sm text-slate-600">We will send a confirmation once submitted.</p>
+                        <form class="mt-6 grid gap-4" id="contactForm">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600">Email</label>
+                                <input id="email" type="email" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600">Phone</label>
+                                <input id="phone" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-600">External reference (optional)</label>
+                                <input id="externalRef" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                            </div>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveContactInfo()">Continue</button>
+                        </form>
+                    </div>
+
+                    <div class="screen hidden" id="captureScreen" data-screen>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="captureLabel">Document capture</div>
+                            <h2 class="mt-2 text-xl font-semibold" id="captureTitle">Capture the front of your document</h2>
+                            <p class="mt-1 text-sm text-slate-600" id="captureSubtitle">Make sure all details are clear and readable.</p>
+                        </div>
+
+                        <div class="camera-container mt-6 rounded-3xl border border-slate-200 bg-slate-900/95 shadow-xl shadow-slate-300/30" id="cameraContainer">
+                            <video id="video" autoplay playsinline></video>
+                            <canvas id="canvas"></canvas>
+                            <div class="camera-overlay">
+                                <div class="guide-box" id="guideBox"></div>
+                                <div class="camera-instructions" id="instructions">Position your document within the frame</div>
+                            </div>
+                            <button class="capture-btn" id="captureBtn">Snap</button>
+                        </div>
+
+                        <div class="preview-container text-center" id="previewContainer">
+                            <img id="previewImage" class="preview-image" alt="Captured image">
+                            <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
+                                <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="retakePhoto()">Retake Photo</button>
+                                <button class="btn btn-primary w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500" onclick="confirmPhoto()">Use This Photo</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="livenessScreen" data-screen>
+                        <div class="text-center">
+                            <div class="liveness-icon mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                                <svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5c-4.142 0-7.5 3.358-7.5 7.5s3.358 7.5 7.5 7.5 7.5-3.358 7.5-7.5S16.142 4.5 12 4.5z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm4.5 0a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zM9 14.25c.75.75 1.75 1.125 3 1.125s2.25-.375 3-1.125" />
+                                </svg>
+                            </div>
+                            <h2 class="text-xl font-semibold">Selfie and liveness check</h2>
+                            <p class="mt-2 text-sm text-slate-600">We will confirm you are present before capturing your selfie.</p>
+
+                            <div class="liveness-instructions mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-left">
+                                <h3 class="text-sm font-semibold text-emerald-800">What you will do</h3>
+                                <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-emerald-900">
+                                    <li>Look at the center of your screen</li>
+                                    <li>Turn your head left</li>
+                                    <li>Turn your head right</li>
+                                    <li>Open your mouth wide</li>
+                                </ol>
+
+                                <div class="liveness-note mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                                    This will open a separate window for liveness detection. Complete the challenges and return here.
+                                </div>
+                            </div>
+
+                            <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
+                                <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="skipLiveness()">Skip liveness</button>
+                                <button class="btn btn-primary w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/60 hover:bg-emerald-500" onclick="startLivenessDetection()">Start Liveness Check</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="reviewScreen" data-screen>
+                        <h2 class="text-xl font-semibold">Review and confirm</h2>
+                        <p class="mt-2 text-sm text-slate-600">Please confirm your details before submission.</p>
+                        <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" id="reviewSummary"></div>
+                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="submitFlow()">Submit Verification</button>
+                    </div>
+
+                    <div class="screen hidden" id="submitScreen" data-screen>
+                        <div class="text-center">
+                            <div class="text-sm font-semibold text-slate-700">Submitting your verification...</div>
+                            <div class="spinner mt-6"></div>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="processingScreen" data-screen>
+                        <div class="text-center">
+                            <div class="text-sm font-semibold text-slate-700">Processing your verification...</div>
+                            <p class="mt-2 text-sm text-slate-500">This may take a few moments.</p>
+                            <div class="spinner mt-6"></div>
+                        </div>
+                    </div>
+
+                    <div class="screen hidden" id="completionScreen" data-screen>
+                        <div class="text-center">
+                            <div class="result-icon mx-auto mb-4" id="resultIcon">OK</div>
+                            <h2 class="text-xl font-semibold" id="resultTitle">Submission received</h2>
+                            <p class="mt-2 text-sm text-slate-600" id="resultMessage">Our team will review your verification and get back to you.</p>
+                            <div id="resultDetails"></div>
+                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startOver()">Start New Verification</button>
+                        </div>
+                    </div>
+
+                    <div class="status-message" id="statusMessage"></div>
                 </div>
             </div>
-
-            <div class="verification-result" id="verificationResult">
-                <div class="result-icon" id="resultIcon">✅</div>
-                <h2 id="resultTitle">Verification Complete!</h2>
-                <p id="resultMessage">Your identity has been successfully verified.</p>
-                <div id="resultDetails"></div>
-                <button class="btn btn-primary" onclick="startOver()" style="margin-top: 20px;">Start New Verification</button>
-            </div>
-
-            <div class="status-message" id="statusMessage"></div>
         </div>
     </div>
 

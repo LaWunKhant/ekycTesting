@@ -9,6 +9,10 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
+from django.core.mail import send_mail
+from django.utils import timezone as dj_timezone
+from django.utils.dateparse import parse_date
+
 from .models import VerificationSession, Tenant, Customer
 
 
@@ -55,6 +59,94 @@ def start_session(request):
     )
 
     return JsonResponse({"success": True, "session_id": str(session_uuid), "status": "started"})
+
+
+@csrf_exempt
+def submit_session(request):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Only POST requests allowed"}, status=405)
+
+    try:
+        data = _parse_json(request)
+    except ValueError as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=400)
+
+    session_id = data.get("session_id")
+    if not session_id:
+        return JsonResponse({"success": False, "error": "Missing session_id"}, status=400)
+
+    tenant = _resolve_tenant(data, request)
+    if tenant is None:
+        return JsonResponse({"success": False, "error": "Missing or invalid tenant"}, status=400)
+
+    try:
+        session = VerificationSession.objects.select_related("customer").get(id=session_id, tenant=tenant)
+    except VerificationSession.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Session not found"}, status=404)
+
+    customer_data = data.get("customer") or {}
+    document_data = data.get("document") or {}
+
+    customer = session.customer
+    if customer is None:
+        customer = Customer(tenant=tenant)
+
+    customer.external_ref = customer_data.get("external_ref") or customer.external_ref
+    customer.citizenship_type = customer_data.get("citizenship_type") or customer.citizenship_type
+    customer.full_name = customer_data.get("full_name") or customer.full_name
+    customer.full_name_kana = customer_data.get("full_name_kana") or customer.full_name_kana
+
+    dob = customer_data.get("date_of_birth")
+    if dob:
+        customer.date_of_birth = parse_date(dob)
+
+    customer.gender = customer_data.get("gender") or customer.gender
+    customer.nationality = customer_data.get("nationality") or customer.nationality
+    customer.postal_code = customer_data.get("postal_code") or customer.postal_code
+    customer.prefecture = customer_data.get("prefecture") or customer.prefecture
+    customer.city = customer_data.get("city") or customer.city
+    customer.street_address = customer_data.get("street_address") or customer.street_address
+    customer.email = customer_data.get("email") or customer.email
+    customer.phone = customer_data.get("phone") or customer.phone
+    customer.save()
+
+    session.customer = customer
+    session.document_type = document_data.get("document_type") or session.document_type
+    session.document_data = document_data.get("document_data") or session.document_data
+    session.residence_status = document_data.get("residence_status") or session.residence_status
+    session.residence_card_number = document_data.get("residence_card_number") or session.residence_card_number
+
+    expiry = document_data.get("residence_card_expiry")
+    if expiry:
+        session.residence_card_expiry = parse_date(expiry)
+
+    session.status = "submitted"
+    session.updated_at = dj_timezone.now()
+    session.save(update_fields=[
+        "customer",
+        "document_type",
+        "document_data",
+        "residence_status",
+        "residence_card_number",
+        "residence_card_expiry",
+        "status",
+        "updated_at",
+    ])
+
+    if customer.email:
+        send_mail(
+            subject="KYC Submission Received",
+            message=(
+                f"Hello {customer.full_name},\n\n"
+                "We received your verification details. Our team is reviewing your submission and will update you soon.\n\n"
+                "Thank you."
+            ),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[customer.email],
+            fail_silently=True,
+        )
+
+    return JsonResponse({"success": True, "customer_id": customer.id, "status": session.status})
 
 
 @csrf_exempt
@@ -218,6 +310,11 @@ def capture_image(request):
         "back": "back_image",
         "selfie": "selfie_image",
     }
+    doc_col_map = {
+        "front": "document_front_url",
+        "back": "document_back_url",
+        "selfie": "selfie_url",
+    }
     step_map = {"front": 2, "back": 3, "selfie": 4}
 
     col = col_map.get(image_type)
@@ -227,10 +324,16 @@ def capture_image(request):
     new_step = step_map.get(image_type, 1)
 
     setattr(session, col, filename)
+    doc_col = doc_col_map.get(image_type)
+    if doc_col:
+        setattr(session, doc_col, filename)
     if session.current_step < new_step:
         session.current_step = new_step
     session.updated_at = datetime.now(timezone.utc)
-    session.save(update_fields=[col, "current_step", "updated_at"])
+    update_fields = [col, "current_step", "updated_at"]
+    if doc_col:
+        update_fields.append(doc_col)
+    session.save(update_fields=update_fields)
 
     return JsonResponse({
         "success": True,

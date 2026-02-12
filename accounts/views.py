@@ -11,7 +11,7 @@ def login_view(request):
     if request.method == "POST":
         form = UnifiedLoginForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get("username")
+            username = form.cleaned_data.get("username" )
             password = form.cleaned_data.get("password")
             company_id = form.cleaned_data.get("company_id")
 
