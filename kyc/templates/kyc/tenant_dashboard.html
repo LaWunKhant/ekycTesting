@@ -55,6 +55,15 @@
                 </div>
             </div>
 
+            {% if is_impersonating %}
+            <div class="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>Impersonating {{ tenant.name }} ({{ impersonator.email }})</div>
+                    <a href="/admin/impersonation/stop/" class="rounded-full border border-amber-500/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/20">Exit Impersonation</a>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 fade-up fade-up-delay-1">
                 <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-100/80 p-5 shadow-lg shadow-slate-200/40 dark:border-slate-800/80 dark:from-slate-900/70 dark:to-slate-950/80 dark:shadow-slate-950/40">
                     <div class="flex items-start justify-between">

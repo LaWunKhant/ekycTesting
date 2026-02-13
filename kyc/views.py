@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth import authenticate, login
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -18,6 +19,9 @@ from django.utils import timezone as dj_timezone
 from datetime import timedelta
 from django.conf import settings as django_settings
 from django.core.mail import send_mail
+from django.utils.text import slugify
+
+from .forms import TenantCreateForm, TenantUpdateForm
 
 # Global variable to track liveness process
 liveness_process = None
@@ -51,22 +55,284 @@ def platform_dashboard(request):
         return _role_denied()
 
     tenants = Tenant.objects.all().order_by("name")
+    pending_sessions = VerificationSession.objects.select_related("tenant", "customer").filter(
+        review_status="pending"
+    ).order_by("-created_at")[:50]
+    users = User.objects.select_related("tenant").order_by("email")[:200]
+    create_form = TenantCreateForm()
+    created_admin_password = None
+    create_error = None
+
+    if request.method == "POST" and request.POST.get("action") == "create_tenant":
+        create_form = TenantCreateForm(request.POST)
+        if create_form.is_valid():
+            name = create_form.cleaned_data["name"]
+            slug = create_form.cleaned_data.get("slug") or slugify(name)
+            admin_email = create_form.cleaned_data["admin_email"]
+            admin_name = create_form.cleaned_data["admin_name"]
+            plan = create_form.cleaned_data.get("plan") or None
+            is_active = bool(create_form.cleaned_data.get("is_active"))
+
+            if Tenant.objects.filter(slug=slug).exists():
+                create_error = "Tenant slug already exists."
+            else:
+                tenant = Tenant.objects.create(
+                    name=name,
+                    slug=slug,
+                    plan=plan,
+                    is_active=is_active,
+                    suspended_at=None if is_active else dj_timezone.now(),
+                    suspended_reason=None if is_active else "Created inactive",
+                )
+
+                password = User.objects.make_random_password()
+                admin_user = User.objects.create_user(
+                    email=admin_email,
+                    password=password,
+                    role="owner",
+                    tenant=tenant,
+                    is_staff=True,
+                )
+                admin_user.first_name = admin_name
+                admin_user.save(update_fields=["first_name"])
+                created_admin_password = password
+        else:
+            create_error = "Please correct the form errors."
+
     context = {
         "tenants": tenants,
-        "tenant_count": tenants.count(),
+        "tenant_count": Tenant.objects.filter(deleted_at__isnull=True).count(),
         "user_count": User.objects.count(),
         "session_count": VerificationSession.objects.count(),
         "pending_reviews": VerificationSession.objects.filter(review_status="pending").count(),
+        "pending_sessions": pending_sessions,
+        "users": users,
+        "create_form": create_form,
+        "create_error": create_error,
+        "created_admin_password": created_admin_password,
     }
     return render(request, "kyc/platform_dashboard.html", context)
 
 
+def platform_dashboard_legacy(request):
+    return redirect("platform_dashboard")
+
+
 @login_required
-def tenant_dashboard(request):
+def admin_tenant_detail(request, tenant_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    tenant = get_object_or_404(Tenant, uuid=tenant_id)
+    users = User.objects.filter(tenant=tenant).order_by("email")
+    sessions = VerificationSession.objects.filter(tenant=tenant).order_by("-created_at")[:100]
+    context = {
+        "tenant": tenant,
+        "users": users,
+        "sessions": sessions,
+    }
+    return render(request, "kyc/admin_tenant_detail.html", context)
+
+
+@login_required
+def admin_tenant_edit(request, tenant_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    tenant = get_object_or_404(Tenant, uuid=tenant_id)
+    error = None
+
+    if request.method == "POST":
+        form = TenantUpdateForm(request.POST)
+        if form.is_valid():
+            slug = form.cleaned_data["slug"]
+            if Tenant.objects.exclude(uuid=tenant.uuid).filter(slug=slug).exists():
+                error = "Tenant slug already exists."
+            else:
+                tenant.name = form.cleaned_data["name"]
+                tenant.slug = slug
+                tenant.plan = form.cleaned_data.get("plan") or None
+                tenant.is_active = bool(form.cleaned_data.get("is_active"))
+                tenant.suspended_reason = form.cleaned_data.get("suspended_reason") or None
+                tenant.suspended_at = None if tenant.is_active else (tenant.suspended_at or dj_timezone.now())
+                tenant.save()
+                return redirect("admin_tenant_detail", tenant_id=tenant.uuid)
+    else:
+        form = TenantUpdateForm(
+            initial={
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "plan": tenant.plan or "",
+                "is_active": tenant.is_active,
+                "suspended_reason": tenant.suspended_reason or "",
+            }
+        )
+
+    return render(
+        request,
+        "kyc/admin_tenant_edit.html",
+        {"tenant": tenant, "form": form, "error": error},
+    )
+
+
+@login_required
+def admin_tenant_toggle(request, tenant_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    if request.method != "POST":
+        return redirect("platform_dashboard")
+
+    tenant = get_object_or_404(Tenant, uuid=tenant_id)
+    reason = request.POST.get("suspended_reason") or None
+    if tenant.is_active:
+        tenant.is_active = False
+        tenant.suspended_at = dj_timezone.now()
+        tenant.suspended_reason = reason or "Suspended by admin"
+    else:
+        tenant.is_active = True
+        tenant.suspended_at = None
+        tenant.suspended_reason = None
+    tenant.save(update_fields=["is_active", "suspended_at", "suspended_reason"])
+    return redirect("platform_dashboard")
+
+
+@login_required
+def admin_tenant_delete(request, tenant_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    if request.method != "POST":
+        return redirect("platform_dashboard")
+
+    tenant = get_object_or_404(Tenant, uuid=tenant_id)
+    tenant.is_active = False
+    tenant.deleted_at = dj_timezone.now()
+    tenant.deleted_by = request.user
+    if not tenant.suspended_at:
+        tenant.suspended_at = dj_timezone.now()
+    if not tenant.suspended_reason:
+        tenant.suspended_reason = "Soft deleted"
+    tenant.save(update_fields=["is_active", "deleted_at", "deleted_by", "suspended_at", "suspended_reason"])
+    return redirect("platform_dashboard")
+
+
+@login_required
+def admin_users(request):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    users = User.objects.select_related("tenant").order_by("email")
+    reset_notice = request.session.pop("reset_password_notice", None)
+    return render(request, "kyc/admin_users.html", {"users": users, "reset_notice": reset_notice})
+
+
+@login_required
+def admin_user_toggle(request, user_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    if request.method != "POST":
+        return redirect("admin_users")
+    user = get_object_or_404(User, id=user_id)
+    user.is_active = not user.is_active
+    user.save(update_fields=["is_active"])
+    return redirect("admin_users")
+
+
+@login_required
+def admin_user_reset_password(request, user_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    if request.method != "POST":
+        return redirect("admin_users")
+    user = get_object_or_404(User, id=user_id)
+    temp_password = User.objects.make_random_password()
+    user.set_password(temp_password)
+    user.save(update_fields=["password"])
+    request.session["reset_password_notice"] = {
+        "email": user.email,
+        "password": temp_password,
+    }
+    return redirect("admin_users")
+
+
+def _clear_impersonation(request):
+    request.session.pop("impersonator_id", None)
+    request.session.pop("impersonated_at", None)
+
+
+def _impersonation_context(request):
+    impersonator_id = request.session.get("impersonator_id")
+    started_at = request.session.get("impersonated_at")
+    if not impersonator_id:
+        return {"is_impersonating": False}
+
+    if started_at and (dj_timezone.now().timestamp() - float(started_at)) > 3600:
+        _clear_impersonation(request)
+        return {"is_impersonating": False}
+
+    try:
+        impersonator = User.objects.get(id=impersonator_id)
+    except User.DoesNotExist:
+        _clear_impersonation(request)
+        return {"is_impersonating": False}
+
+    return {
+        "is_impersonating": True,
+        "impersonator": impersonator,
+    }
+
+
+@login_required
+def admin_impersonate(request, tenant_id):
+    if not _require_user_type(request.user, {"super_admin"}):
+        return _role_denied()
+    if request.method != "POST":
+        return redirect("platform_dashboard")
+
+    password = request.POST.get("password") or ""
+    if not authenticate(request, username=request.user.email, password=password):
+        return redirect("platform_dashboard")
+
+    tenant = get_object_or_404(Tenant, uuid=tenant_id)
+    target = User.objects.filter(tenant=tenant, role="owner", is_active=True).first()
+    if target is None:
+        target = User.objects.filter(tenant=tenant, role="admin", is_active=True).first()
+    if target is None:
+        target = User.objects.filter(tenant=tenant, is_active=True).first()
+    if target is None:
+        return redirect("platform_dashboard")
+
+    request.session["impersonator_id"] = request.user.id
+    request.session["impersonated_at"] = dj_timezone.now().timestamp()
+    request.session.set_expiry(3600)
+    login(request, target)
+    return redirect("tenant_dashboard", tenant_slug=tenant.slug)
+
+
+@login_required
+def admin_stop_impersonation(request):
+    impersonator_id = request.session.get("impersonator_id")
+    if not impersonator_id:
+        return redirect("platform_dashboard")
+    try:
+        impersonator = User.objects.get(id=impersonator_id)
+    except User.DoesNotExist:
+        _clear_impersonation(request)
+        return redirect("platform_dashboard")
+
+    _clear_impersonation(request)
+    login(request, impersonator)
+    return redirect("platform_dashboard")
+
+
+@login_required
+def tenant_dashboard(request, tenant_slug):
     if not _require_user_type(request.user, {"owner", "admin", "staff"}):
         return _role_denied()
     if not request.user.tenant:
         return HttpResponseForbidden("No tenant assigned")
+    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
+        return HttpResponseForbidden("Tenant is inactive")
+    if tenant_slug != request.user.tenant.slug:
+        return HttpResponseForbidden("Access denied for tenant")
+    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
+        return HttpResponseForbidden("Tenant is inactive")
 
     tenant = request.user.tenant
     sessions = VerificationSession.objects.filter(tenant=tenant).order_by("-created_at")[:200]
@@ -118,8 +384,19 @@ def tenant_dashboard(request):
         "customer_form": customer_form,
         "latest_link": latest_link,
         "public_base_url": getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/"),
+        **_impersonation_context(request),
     }
     return render(request, "kyc/tenant_dashboard.html", context)
+
+
+def tenant_dashboard_legacy(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if request.user.is_platform_admin():
+        return redirect("platform_dashboard")
+    if request.user.tenant:
+        return redirect("tenant_dashboard", tenant_slug=request.user.tenant.slug)
+    return HttpResponseForbidden("No tenant assigned")
 
 
 class StaffCreateForm(forms.Form):
@@ -166,6 +443,7 @@ def tenant_team(request):
         "tenant": tenant,
         "staff": staff_qs,
         "form": form,
+        **_impersonation_context(request),
     }
     return render(request, "kyc/tenant_team.html", context)
 
@@ -249,6 +527,7 @@ def review_sessions(request):
         "review_status": review_status or "",
         "is_superuser": request.user.is_superuser,
         "user_tenant": user_tenant,
+        **_impersonation_context(request),
     }
     return render(request, "kyc/admin_sessions.html", context)
 
@@ -283,7 +562,12 @@ def review_session_detail(request, session_id):
         "front_url": _media_url(session.document_front_url or session.front_image),
         "back_url": _media_url(session.document_back_url or session.back_image),
         "selfie_url": _media_url(session.selfie_url or session.selfie_image),
+        **_impersonation_context(request),
     }
+    if request.user.is_superuser:
+        context["back_link"] = redirect("review_sessions").url
+    else:
+        context["back_link"] = redirect("tenant_dashboard", tenant_slug=request.user.tenant.slug).url
     return render(request, "kyc/admin_session_detail.html", context)
 
 

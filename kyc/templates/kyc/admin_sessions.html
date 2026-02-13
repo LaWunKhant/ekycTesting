@@ -14,8 +14,17 @@
                 <h1 class="text-3xl font-semibold">Verification Review</h1>
                 <p class="text-slate-400 mt-1">Review queue (latest 200)</p>
             </div>
-            <a href="/admin/" class="text-sm text-cyan-400 hover:text-cyan-300">Admin</a>
+            <a href="/admin/dashboard/" class="text-sm text-cyan-400 hover:text-cyan-300">Admin</a>
         </div>
+
+        {% if is_impersonating %}
+        <div class="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>Impersonating {{ user_tenant.name }} ({{ impersonator.email }})</div>
+                <a href="/admin/impersonation/stop/" class="rounded-full border border-amber-500/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/20">Exit Impersonation</a>
+            </div>
+        </div>
+        {% endif %}
 
         <form class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4" method="get">
             {% if is_superuser %}

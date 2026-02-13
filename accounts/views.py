@@ -8,32 +8,70 @@ from .forms import UnifiedLoginForm, TenantStaffCreationForm, TenantSignupForm
 
 @csrf_protect
 def login_view(request):
+    host = request.get_host().split(":")[0]
+    portal_title = "MoonKYC Business"
+    portal_subtitle = "Sign in to your workspace"
+    subdomain = None
+    if host.replace(".", "").isdigit() or host in {"localhost"}:
+        subdomain = None
+    else:
+        parts = host.split(".")
+        if len(parts) > 2:
+            subdomain = parts[0].lower()
+
+    if subdomain == "admin":
+        portal_title = "MoonKYC Admin"
+        portal_subtitle = "Sign in to the admin console"
+
     if request.method == "POST":
         form = UnifiedLoginForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get("username" )
+            username = form.cleaned_data.get("username")
             password = form.cleaned_data.get("password")
-            company_id = form.cleaned_data.get("company_id")
 
             user = authenticate(request, username=username, password=password)
             if user is None:
-                return render(request, "registration/login.html", {"form": form, "invalid": True})
+                return render(
+                    request,
+                    "registration/login.html",
+                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
+                )
 
-            if not user.is_superuser:
-                if not user.tenant:
-                    return render(request, "registration/login.html", {"form": form, "invalid": True})
-                if not company_id or user.tenant.slug != company_id:
-                    return render(request, "registration/login.html", {"form": form, "invalid": True})
+            if subdomain == "admin" and not user.is_platform_admin():
+                return render(
+                    request,
+                    "registration/login.html",
+                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
+                )
+
+            if subdomain and subdomain not in {"admin", "app"}:
+                if not user.tenant or user.tenant.slug != subdomain:
+                    return render(
+                        request,
+                        "registration/login.html",
+                        {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
+                    )
+
+            if user.tenant and (user.tenant.deleted_at or not user.tenant.is_active):
+                return render(
+                    request,
+                    "registration/login.html",
+                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
+                )
 
             login(request, user)
 
             if user.is_platform_admin():
                 return redirect("platform_dashboard")
-            return redirect("tenant_dashboard")
+            return redirect("tenant_dashboard", tenant_slug=user.tenant.slug)
     else:
         form = UnifiedLoginForm(request)
 
-    return render(request, "registration/login.html", {"form": form})
+    return render(
+        request,
+        "registration/login.html",
+        {"form": form, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
+    )
 
 
 def home_redirect(request):
@@ -61,7 +99,7 @@ def signup_view(request):
             user.is_staff = True
             user.save()
             login(request, user)
-            return redirect("tenant_dashboard")
+            return redirect("tenant_dashboard", tenant_slug=tenant.slug)
     else:
         form = TenantSignupForm()
 

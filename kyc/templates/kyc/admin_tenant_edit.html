@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Tenant - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-4xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-semibold">Edit Tenant</h1>
+                <p class="text-slate-400 mt-1">{{ tenant.name }}</p>
+            </div>
+            <a href="{% url 'admin_tenant_detail' tenant.uuid %}" class="text-sm text-cyan-400 hover:text-cyan-300">Back to details</a>
+        </div>
+
+        <div class="mt-6 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
+            {% if error %}
+                <div class="mb-4 rounded-lg border border-red-700/40 bg-red-900/30 p-3 text-sm text-red-200">
+                    {{ error }}
+                </div>
+            {% endif %}
+            <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs text-slate-400">Company name</label>
+                    <input name="name" value="{{ form.name.value|default:'' }}" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400">Slug</label>
+                    <input name="slug" value="{{ form.slug.value|default:'' }}" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400">Plan</label>
+                    <select name="plan" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+                        <option value="" {% if form.plan.value == '' %}selected{% endif %}>None</option>
+                        <option value="free" {% if form.plan.value == 'free' %}selected{% endif %}>Free</option>
+                        <option value="basic" {% if form.plan.value == 'basic' %}selected{% endif %}>Basic</option>
+                        <option value="enterprise" {% if form.plan.value == 'enterprise' %}selected{% endif %}>Enterprise</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <input id="is_active" name="is_active" type="checkbox" {% if form.is_active.value %}checked{% endif %} class="h-4 w-4 rounded border-slate-700 bg-slate-950" />
+                    <label for="is_active" class="text-xs text-slate-300">Active tenant</label>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs text-slate-400">Suspended reason</label>
+                    <textarea name="suspended_reason" rows="4" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">{{ form.suspended_reason.value|default:'' }}</textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <button class="w-full rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

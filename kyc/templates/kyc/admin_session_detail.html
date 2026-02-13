@@ -14,8 +14,17 @@
                 <h1 class="text-3xl font-semibold">Session Review</h1>
                 <p class="text-slate-400 mt-1">{{ session.id }}</p>
             </div>
-            <a href="{% url 'review_sessions' %}" class="text-sm text-cyan-400 hover:text-cyan-300">Back to list</a>
+            <a href="{{ back_link }}" class="text-sm text-cyan-400 hover:text-cyan-300">Back to list</a>
         </div>
+
+        {% if is_impersonating %}
+        <div class="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>Impersonating {{ session.tenant.name }} ({{ impersonator.email }})</div>
+                <a href="/admin/impersonation/stop/" class="rounded-full border border-amber-500/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/20">Exit Impersonation</a>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">

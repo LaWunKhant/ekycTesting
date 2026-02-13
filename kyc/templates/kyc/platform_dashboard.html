@@ -8,13 +8,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-    <div class="max-w-6xl mx-auto px-6 py-10">
-        <div class="flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-6 py-10">
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-semibold">Platform Dashboard</h1>
                 <p class="text-slate-400 mt-1">Superuser view across all tenants</p>
             </div>
-            <a href="/accounts/logout/" class="text-sm text-cyan-400 hover:text-cyan-300">Logout</a>
+            <div class="flex items-center gap-4">
+                <a href="/admin/users/" class="rounded-full border border-slate-800 bg-slate-900/60 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800">View All Users</a>
+                <a href="/accounts/logout/" class="text-sm text-cyan-400 hover:text-cyan-300">Logout</a>
+            </div>
         </div>
 
         <div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -32,7 +35,82 @@
             </div>
             <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                 <div class="text-xs text-slate-400">Pending Reviews</div>
-                <div class="text-2xl font-semibold">{{ pending_reviews }}</div>
+                <a class="text-2xl font-semibold text-cyan-400 hover:text-cyan-300" href="/review/?review_status=pending">{{ pending_reviews }}</a>
+            </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Create New Tenant</h2>
+                    <span class="text-xs text-slate-400">Admins will receive a temporary password</span>
+                </div>
+
+                {% if create_error %}
+                    <div class="mt-4 rounded-lg border border-red-700/40 bg-red-900/30 p-3 text-sm text-red-200">
+                        {{ create_error }}
+                    </div>
+                {% endif %}
+                {% if created_admin_password %}
+                    <div class="mt-4 rounded-lg border border-emerald-700/40 bg-emerald-900/30 p-3 text-sm text-emerald-200">
+                        Admin temporary password: <strong>{{ created_admin_password }}</strong>
+                    </div>
+                {% endif %}
+
+                <form method="post" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_tenant" />
+                    <div>
+                        <label class="block text-xs text-slate-400">Company name</label>
+                        <input name="name" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Slug (auto if blank)</label>
+                        <input name="slug" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Admin email</label>
+                        <input name="admin_email" type="email" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Admin name</label>
+                        <input name="admin_name" required class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2" />
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400">Plan</label>
+                        <select name="plan" class="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+                            <option value="">Select plan</option>
+                            <option value="free">Free</option>
+                            <option value="basic">Basic</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input id="is_active" name="is_active" type="checkbox" checked class="h-4 w-4 rounded border-slate-700 bg-slate-950" />
+                        <label for="is_active" class="text-xs text-slate-300">Active tenant</label>
+                    </div>
+                    <div class="md:col-span-2">
+                        <button class="w-full rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold">Create Tenant</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-6">
+                <h2 class="text-lg font-semibold">Pending Reviews</h2>
+                <p class="mt-1 text-sm text-slate-400">Latest pending verifications</p>
+                <div class="mt-4 space-y-3">
+                    {% for s in pending_sessions %}
+                        <div class="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                            <div class="text-sm font-semibold text-slate-200">{{ s.customer.full_name|default:"Unknown" }}</div>
+                            <div class="text-xs text-slate-400">{{ s.tenant.slug }} · {{ s.created_at }}</div>
+                            <div class="mt-2">
+                                <a href="{% url 'review_session_detail' s.id %}" class="text-xs text-cyan-400 hover:text-cyan-300">Review</a>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="text-sm text-slate-400">No pending reviews.</div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
 
@@ -42,23 +120,101 @@
                     <tr>
                         <th class="text-left px-4 py-3">Tenant</th>
                         <th class="text-left px-4 py-3">Slug</th>
+                        <th class="text-left px-4 py-3">Plan</th>
+                        <th class="text-left px-4 py-3">Status</th>
                         <th class="text-left px-4 py-3">Created</th>
+                        <th class="text-left px-4 py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">
                     {% for t in tenants %}
                     <tr class="hover:bg-slate-900/40">
-                        <td class="px-4 py-3">{{ t.name }}</td>
-                        <td class="px-4 py-3">{{ t.slug }}</td>
-                        <td class="px-4 py-3">{{ t.created_at }}</td>
+                        <td class="px-4 py-3">
+                            <div class="text-sm font-medium text-slate-100">{{ t.name }}</div>
+                            <div class="text-xs text-slate-400">UUID: {{ t.uuid }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-300">{{ t.slug }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-300">{{ t.plan|default:"-" }}</td>
+                        <td class="px-4 py-3">
+                            {% if t.deleted_at %}
+                                <span class="text-xs text-red-300">Deleted</span>
+                            {% elif t.is_active %}
+                                <span class="text-xs text-emerald-300">Active</span>
+                            {% else %}
+                                <span class="text-xs text-amber-300">Suspended</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-300">{{ t.created_at }}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-2">
+                                <a class="text-xs text-cyan-400 hover:text-cyan-300" href="{% url 'admin_tenant_detail' t.uuid %}">View</a>
+                                <a class="text-xs text-cyan-400 hover:text-cyan-300" href="{% url 'admin_tenant_edit' t.uuid %}">Edit</a>
+                                <form method="post" action="{% url 'admin_tenant_toggle' t.uuid %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="suspended_reason" value="Manual toggle" />
+                                    <button type="submit" class="text-xs text-amber-300 hover:text-amber-200">
+                                        {% if t.is_active %}Suspend{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'admin_tenant_delete' t.uuid %}" class="inline" onsubmit="return confirm('Soft delete this tenant?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-xs text-red-300 hover:text-red-200">Delete</button>
+                                </form>
+                                <form method="post" action="{% url 'admin_impersonate' t.uuid %}" class="inline-flex items-center gap-2">
+                                    {% csrf_token %}
+                                    <input name="password" type="password" placeholder="Confirm password" class="w-32 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs" />
+                                    <button type="submit" class="text-xs text-emerald-300 hover:text-emerald-200">Login as</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td class="px-4 py-6 text-slate-400" colspan="3">No tenants found.</td>
+                        <td class="px-4 py-6 text-slate-400" colspan="6">No tenants found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <div class="mt-10 rounded-xl border border-slate-800 bg-slate-900/40 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold">Recent Users</h2>
+                    <p class="mt-1 text-sm text-slate-400">Latest 200 users across tenants.</p>
+                </div>
+                <a class="text-sm text-cyan-400 hover:text-cyan-300" href="/admin/users/">View all users</a>
+            </div>
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="text-slate-400">
+                        <tr>
+                            <th class="text-left px-3 py-2">Email</th>
+                            <th class="text-left px-3 py-2">Name</th>
+                            <th class="text-left px-3 py-2">Tenant</th>
+                            <th class="text-left px-3 py-2">Role</th>
+                            <th class="text-left px-3 py-2">Status</th>
+                            <th class="text-left px-3 py-2">Last login</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        {% for u in users %}
+                        <tr>
+                            <td class="px-3 py-2">{{ u.email }}</td>
+                            <td class="px-3 py-2">{{ u.first_name }} {{ u.last_name }}</td>
+                            <td class="px-3 py-2">{{ u.tenant.slug|default:"-" }}</td>
+                            <td class="px-3 py-2">{{ u.role }}</td>
+                            <td class="px-3 py-2">{% if u.is_active %}Active{% else %}Suspended{% endif %}</td>
+                            <td class="px-3 py-2">{{ u.last_login|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td class="px-3 py-4 text-slate-400" colspan="6">No users found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>

@@ -6,8 +6,6 @@ from .models import User
 
 
 class UnifiedLoginForm(AuthenticationForm):
-    company_id = forms.CharField(required=False, label="Company ID")
-
     username = forms.EmailField(label="Email")
 
 

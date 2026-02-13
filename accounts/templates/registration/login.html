@@ -11,13 +11,13 @@
     <div class="min-h-screen flex items-center justify-center px-4 py-12">
         <div class="w-full max-w-md rounded-2xl bg-slate-900/70 border border-slate-800 shadow-2xl p-8">
             <div class="mb-8 text-center">
-                <div class="text-3xl font-semibold tracking-tight">MoonKYC</div>
-                <p class="text-slate-400 mt-2">Sign in to your workspace</p>
+                <div class="text-3xl font-semibold tracking-tight">{{ portal_title|default:"MoonKYC Business" }}</div>
+                <p class="text-slate-400 mt-2">{{ portal_subtitle|default:"Sign in to your workspace" }}</p>
             </div>
 
             {% if invalid %}
                 <div class="mb-4 rounded-lg border border-red-700/40 bg-red-900/30 p-3 text-sm text-red-200">
-                    Invalid credentials or company ID. Please try again.
+                    Invalid credentials. Please try again.
                 </div>
             {% endif %}
 
@@ -47,17 +47,6 @@
                     />
                 </div>
 
-                <div>
-                    <label for="id_company_id" class="block text-sm font-medium text-slate-300">Company ID (Tenant)</label>
-                    <input
-                        type="text"
-                        name="company_id"
-                        id="id_company_id"
-                        placeholder="acme"
-                        class="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                    />
-                </div>
-
                 <button
                     type="submit"
                     class="w-full rounded-lg bg-cyan-500 px-4 py-2 text-slate-950 font-semibold hover:bg-cyan-400 transition"
@@ -66,12 +55,6 @@
                 </button>
             </form>
 
-            <div class="mt-6 text-center text-sm text-slate-400">
-                Don't have a tenant? <a class="text-cyan-400 hover:text-cyan-300" href="/accounts/signup/">Create one</a>
-            </div>
-            <div class="mt-2 text-center text-sm text-slate-400">
-                Customer? <a class="text-cyan-400 hover:text-cyan-300" href="/customer/start/">Start verification</a>
-            </div>
         </div>
     </div>
 </body>

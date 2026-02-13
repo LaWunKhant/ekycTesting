@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tenant Details - MoonKYC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-6xl mx-auto px-6 py-10">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-semibold">{{ tenant.name }}</h1>
+                <p class="text-slate-400 mt-1">Tenant details</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/admin/dashboard/" class="text-sm text-cyan-400 hover:text-cyan-300">Back to dashboard</a>
+                <a href="{% url 'admin_tenant_edit' tenant.uuid %}" class="text-sm text-cyan-400 hover:text-cyan-300">Edit</a>
+            </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div class="text-xs text-slate-400">Slug</div>
+                <div class="text-lg">{{ tenant.slug }}</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div class="text-xs text-slate-400">Plan</div>
+                <div class="text-lg">{{ tenant.plan|default:"-" }}</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                <div class="text-xs text-slate-400">Status</div>
+                <div class="text-lg">
+                    {% if tenant.deleted_at %}
+                        Deleted
+                    {% elif tenant.is_active %}
+                        Active
+                    {% else %}
+                        Suspended
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                <h2 class="text-lg font-semibold">Users</h2>
+                <div class="mt-4 divide-y divide-slate-800">
+                    {% for u in users %}
+                        <div class="py-3 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium">{{ u.email }}</div>
+                                <div class="text-xs text-slate-400">{{ u.role }}</div>
+                            </div>
+                            <div class="text-xs text-slate-400">{% if u.is_active %}Active{% else %}Suspended{% endif %}</div>
+                        </div>
+                    {% empty %}
+                        <div class="text-sm text-slate-400">No users found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
+                <h2 class="text-lg font-semibold">Recent Sessions</h2>
+                <div class="mt-4 divide-y divide-slate-800">
+                    {% for s in sessions %}
+                        <div class="py-3 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium">{{ s.customer.full_name|default:"Unknown" }}</div>
+                                <div class="text-xs text-slate-400">{{ s.id }}</div>
+                            </div>
+                            <a class="text-xs text-cyan-400 hover:text-cyan-300" href="{% url 'review_session_detail' s.id %}">Review</a>
+                        </div>
+                    {% empty %}
+                        <div class="text-sm text-slate-400">No sessions found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

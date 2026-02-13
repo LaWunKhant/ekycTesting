@@ -5,8 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d10bc6ed-758c-4cf8-a531-d88178eb4c7f" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/forms.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/forms.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/templates/registration/login.html" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/templates/registration/login.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/accounts/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/accounts/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/admin_session_detail.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/admin_session_detail.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/admin_sessions.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/admin_sessions.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/tenant_dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/tenant_dashboard.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/tenant_team.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/tenant_team.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kyc/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/views.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/myproject/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/urls.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
