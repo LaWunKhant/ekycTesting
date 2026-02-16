@@ -234,6 +234,39 @@
                         </div>
                     </div>
 
+                    <div class="screen hidden" id="tiltScreen" data-screen>
+                        <div class="text-center">
+                            <div class="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600">
+                                <svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.5h11.25a2.25 2.25 0 0 0 2.25-2.25V7.5a2.25 2.25 0 0 0-2.25-2.25H4.5a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12h7.5" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m18.75 7.5 2.25 2.25-2.25 2.25" />
+                                </svg>
+                            </div>
+                            <h2 class="text-xl font-semibold">Card thickness check</h2>
+                            <p class="mt-2 text-sm text-slate-600">
+                                Before liveness, hold your ID card at a slight angle so the edge is visible.
+                            </p>
+
+                            <div class="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-5 text-left">
+                                <div class="tilt-guide-card mx-auto mb-4"></div>
+                                <ol class="list-decimal space-y-2 pl-5 text-sm text-cyan-900">
+                                    <li>Hold the real ID card in your hand (not screen/photo).</li>
+                                    <li>Tilt 1: Show LEFT edge (counterclockwise).</li>
+                                    <li>Tilt 2: Show RIGHT edge (clockwise).</li>
+                                    <li>Tilt 3: Show TOP edge (tilt backward).</li>
+                                </ol>
+                            </div>
+
+                            <button
+                                class="btn btn-primary mt-6 w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500"
+                                onclick="startTiltCapture()"
+                            >
+                                Start Tilt Check
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="screen hidden" id="livenessScreen" data-screen>
                         <div class="text-center">
                             <div class="liveness-icon mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
@@ -304,6 +337,6 @@
         </div>
     </div>
 
-    <script src="{% static 'js/main.js' %}" defer></script>
+    <script src="{% static 'js/main.js' %}?v=tilt-check-3" defer></script>
 </body>
 </html>

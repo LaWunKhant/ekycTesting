@@ -91,6 +91,8 @@ class VerificationSession(models.Model):
     document_front_url = models.CharField(max_length=255, blank=True, null=True)
     document_back_url = models.CharField(max_length=255, blank=True, null=True)
     selfie_url = models.CharField(max_length=255, blank=True, null=True)
+    tilt_frames = models.JSONField(blank=True, null=True)
+    detected_card_type = models.CharField(max_length=80, blank=True, null=True)
 
     liveness_running = models.BooleanField(default=False)
     liveness_completed = models.BooleanField(default=False)
@@ -103,6 +105,11 @@ class VerificationSession(models.Model):
     verify_verified = models.BooleanField(default=False)
     verify_confidence = models.FloatField(default=0)
     verify_similarity = models.FloatField(default=0)
+    physical_card_verified = models.BooleanField(default=False)
+    physical_card_score = models.FloatField(default=0)
+    edge_consistency_score = models.FloatField(default=0)
+    depth_variation_score = models.FloatField(default=0)
+    tilt_analysis = models.JSONField(blank=True, null=True)
 
     review_status = models.CharField(max_length=20, default="pending")
     review_notes = models.TextField(blank=True, null=True)

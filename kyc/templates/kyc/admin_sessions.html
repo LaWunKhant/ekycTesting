@@ -100,7 +100,7 @@
                             {{ s.customer.citizenship_type|default:"-" }}
                         </td>
                         <td class="px-4 py-3 text-sm text-slate-300">
-                            {{ s.document_type|default:"-" }}
+                            {{ s.detected_card_type|default:s.document_type|default:"-" }}
                         </td>
                         <td class="px-4 py-3">{{ s.status }}</td>
                         <td class="px-4 py-3">

@@ -15,9 +15,9 @@
                 <p class="text-slate-400 mt-2">{{ portal_subtitle|default:"Sign in to your workspace" }}</p>
             </div>
 
-            {% if invalid %}
+            {% if invalid or form.errors %}
                 <div class="mb-4 rounded-lg border border-red-700/40 bg-red-900/30 p-3 text-sm text-red-200">
-                    Invalid credentials. Please try again.
+                    Your email or password is incorrect. Please try again.
                 </div>
             {% endif %}
 

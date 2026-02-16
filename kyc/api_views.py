@@ -16,6 +16,14 @@ from django.utils.dateparse import parse_date
 from .models import VerificationSession, Tenant, Customer
 
 
+CARD_TYPE_LABELS = {
+    "driver_license": "Driver License",
+    "my_number": "My Number Card",
+    "passport": "Passport",
+    "residence_card": "Residence Card",
+}
+
+
 @csrf_exempt
 def start_session(request):
     if request.method != "POST":
@@ -112,6 +120,7 @@ def submit_session(request):
 
     session.customer = customer
     session.document_type = document_data.get("document_type") or session.document_type
+    session.detected_card_type = CARD_TYPE_LABELS.get(session.document_type, session.document_type)
     session.document_data = document_data.get("document_data") or session.document_data
     session.residence_status = document_data.get("residence_status") or session.residence_status
     session.residence_card_number = document_data.get("residence_card_number") or session.residence_card_number
@@ -125,6 +134,7 @@ def submit_session(request):
     session.save(update_fields=[
         "customer",
         "document_type",
+        "detected_card_type",
         "document_data",
         "residence_status",
         "residence_card_number",
@@ -175,6 +185,7 @@ def session_status(request, session_id):
         "front_image": session.front_image,
         "back_image": session.back_image,
         "selfie_image": session.selfie_image,
+        "tilt_frames": session.tilt_frames,
         "liveness_running": session.liveness_running,
         "liveness_completed": session.liveness_completed,
         "liveness_verified": session.liveness_verified,
@@ -185,6 +196,12 @@ def session_status(request, session_id):
         "verify_verified": session.verify_verified,
         "verify_confidence": session.verify_confidence,
         "verify_similarity": session.verify_similarity,
+        "physical_card_verified": session.physical_card_verified,
+        "physical_card_score": session.physical_card_score,
+        "edge_consistency_score": session.edge_consistency_score,
+        "depth_variation_score": session.depth_variation_score,
+        "tilt_analysis": session.tilt_analysis,
+        "detected_card_type": session.detected_card_type,
         "user_agent": session.user_agent,
         "ip_address": session.ip_address,
     }
@@ -318,21 +335,32 @@ def capture_image(request):
     step_map = {"front": 2, "back": 3, "selfie": 4}
 
     col = col_map.get(image_type)
-    if not col:
+    is_tilt_frame = image_type.startswith("tilt_")
+
+    if not col and not is_tilt_frame:
         return JsonResponse({"success": False, "error": "Invalid image type"}, status=400)
 
     new_step = step_map.get(image_type, 1)
+    update_fields = ["updated_at"]
 
-    setattr(session, col, filename)
-    doc_col = doc_col_map.get(image_type)
-    if doc_col:
-        setattr(session, doc_col, filename)
-    if session.current_step < new_step:
-        session.current_step = new_step
+    if is_tilt_frame:
+        frames = list(session.tilt_frames or [])
+        frames.append(filename)
+        session.tilt_frames = frames[-5:]
+        session.current_step = max(session.current_step, 5)
+        update_fields.extend(["tilt_frames", "current_step"])
+    else:
+        setattr(session, col, filename)
+        doc_col = doc_col_map.get(image_type)
+        if doc_col:
+            setattr(session, doc_col, filename)
+        if session.current_step < new_step:
+            session.current_step = new_step
+        update_fields.extend([col, "current_step"])
+        if doc_col:
+            update_fields.append(doc_col)
+
     session.updated_at = datetime.now(timezone.utc)
-    update_fields = [col, "current_step", "updated_at"]
-    if doc_col:
-        update_fields.append(doc_col)
     session.save(update_fields=update_fields)
 
     return JsonResponse({

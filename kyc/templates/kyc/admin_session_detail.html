@@ -29,7 +29,7 @@
         <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2 space-y-6">
                 <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
                             <div class="text-xs text-slate-400">Tenant</div>
                             <div class="text-lg">{{ session.tenant.slug }}</div>
@@ -45,6 +45,10 @@
                         <div>
                             <div class="text-xs text-slate-400">Document</div>
                             <div class="text-lg">{{ session.document_type|default:"-" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-400">Detected Card</div>
+                            <div class="text-lg">{{ session.detected_card_type|default:"-" }}</div>
                         </div>
                     </div>
                 </div>
@@ -160,6 +164,22 @@
                         <div>
                             <div class="text-slate-400">Confidence</div>
                             <div>{{ session.verify_confidence }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Card physical check</div>
+                            <div>{% if session.physical_card_verified %}Passed{% else %}Needs review{% endif %}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Physical score</div>
+                            <div>{{ session.physical_card_score }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Edge consistency</div>
+                            <div>{{ session.edge_consistency_score }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-400">Depth variation</div>
+                            <div>{{ session.depth_variation_score }}</div>
                         </div>
                     </div>
                 </div>

@@ -22,6 +22,7 @@ from django.core.mail import send_mail
 from django.utils.text import slugify
 
 from .forms import TenantCreateForm, TenantUpdateForm
+from .services.card_physical_check import analyze_card_physicality
 
 # Global variable to track liveness process
 liveness_process = None
@@ -786,6 +787,7 @@ def verify_kyc(request):
             front_path = data.get('front_image')
             back_path = data.get('back_image')
             selfie_path = data.get('selfie_image')
+            tilt_images = data.get('tilt_images') or []
             liveness_verified = data.get('liveness_verified', False)  # NEW: Get liveness status
 
             print(f"\n{'=' * 70}")
@@ -793,6 +795,7 @@ def verify_kyc(request):
             print(f"Front: {front_path}")
             print(f"Back: {back_path}")
             print(f"Selfie: {selfie_path}")
+            print(f"Tilt frames: {len(tilt_images)}")
             print(f"Liveness: {'✓ Verified' if liveness_verified else '✗ Not verified'}")
             print(f"{'=' * 70}\n")
 
@@ -812,6 +815,31 @@ def verify_kyc(request):
             front_path = _resolve_media_path(front_path)
             back_path = _resolve_media_path(back_path)
             selfie_path = _resolve_media_path(selfie_path)
+            tilt_paths = [_resolve_media_path(path) for path in tilt_images if path]
+
+            card_detection = None
+            if session_id and tenant is not None:
+                session_for_card = VerificationSession.objects.filter(id=session_id, tenant=tenant).first()
+                if session_for_card:
+                    session_tilt = session_for_card.tilt_frames or []
+                    if tilt_images and not session_tilt:
+                        session_for_card.tilt_frames = tilt_images
+                        session_for_card.save(update_fields=["tilt_frames"])
+                        session_tilt = tilt_images
+                    for p in session_tilt:
+                        rp = _resolve_media_path(p)
+                        if rp and rp not in tilt_paths:
+                            tilt_paths.append(rp)
+                    if session_for_card.document_type:
+                        card_detection = {
+                            "document_type": session_for_card.document_type,
+                            "label": {
+                                "driver_license": "Driver License",
+                                "my_number": "My Number Card",
+                                "passport": "Passport",
+                                "residence_card": "Residence Card",
+                            }.get(session_for_card.document_type, session_for_card.document_type),
+                        }
 
             if not os.path.exists(front_path):
                 return JsonResponse({
@@ -934,9 +962,15 @@ def verify_kyc(request):
                     'details': {
                         'id_face_path': id_face_path,
                         'models': results,
-                        'liveness_status': 'verified' if liveness_verified else 'skipped'
+                        'liveness_status': 'verified' if liveness_verified else 'skipped',
                     }
                 }
+
+                physical_result = analyze_card_physicality(tilt_paths)
+                result_payload["physical_card_check"] = physical_result
+                if card_detection:
+                    result_payload["detected_card"] = card_detection
+                result_payload["details"]["tilt_frames_used"] = physical_result.get("frames_used", 0)
 
                 if session_id:
                     _update_session_verification(
@@ -946,6 +980,8 @@ def verify_kyc(request):
                         confidence=avg_similarity,
                         similarity=avg_similarity,
                         liveness_verified=liveness_verified,
+                        physical_result=physical_result,
+                        card_detection=card_detection,
                     )
 
                 return JsonResponse(result_payload)
@@ -989,7 +1025,16 @@ def _get_user_tenant(user):
     return user.tenant
 
 
-def _update_session_verification(session_id, tenant, verified, confidence, similarity, liveness_verified):
+def _update_session_verification(
+    session_id,
+    tenant,
+    verified,
+    confidence,
+    similarity,
+    liveness_verified,
+    physical_result=None,
+    card_detection=None,
+):
     try:
         if tenant is None:
             return
@@ -1001,12 +1046,26 @@ def _update_session_verification(session_id, tenant, verified, confidence, simil
     session.verify_confidence = float(confidence or 0)
     session.verify_similarity = float(similarity or 0)
     session.liveness_verified = bool(liveness_verified)
+    if physical_result:
+        session.physical_card_verified = bool(physical_result.get("verified"))
+        session.physical_card_score = float(physical_result.get("physical_card_score") or 0)
+        session.edge_consistency_score = float(physical_result.get("edge_consistency_score") or 0)
+        session.depth_variation_score = float(physical_result.get("depth_variation_score") or 0)
+        session.tilt_analysis = physical_result
+    if card_detection:
+        session.detected_card_type = card_detection.get("label")
     session.updated_at = datetime.now(timezone.utc)
     session.save(update_fields=[
         "verify_verified",
         "verify_confidence",
         "verify_similarity",
         "liveness_verified",
+        "physical_card_verified",
+        "physical_card_score",
+        "edge_consistency_score",
+        "depth_variation_score",
+        "tilt_analysis",
+        "detected_card_type",
         "updated_at",
     ])
 

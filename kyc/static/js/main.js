@@ -17,6 +17,7 @@ const flowSteps = [
     { id: "address", title: "Address" },
     { id: "contact", title: "Contact" },
     { id: "capture", title: "Document Capture" },
+    { id: "tilt", title: "Card Thickness Check" },
     { id: "liveness", title: "Selfie and Liveness" },
     { id: "review", title: "Review" },
     { id: "submit", title: "Submit" },
@@ -33,6 +34,7 @@ const stepScreens = {
     address: "addressScreen",
     contact: "contactScreen",
     capture: "captureScreen",
+    tilt: "tiltScreen",
     liveness: "livenessScreen",
     review: "reviewScreen",
     submit: "submitScreen",
@@ -106,6 +108,44 @@ let currentStepIndex = 0;
 let captureStep = "front";
 let capturedImages = { front: null, back: null, selfie: null };
 let capturedPaths = { front: null, back: null, selfie: null };
+let capturedTiltPaths = [];
+let tiltCaptureIndex = 0;
+const TILT_DIRECTIONS = [
+    {
+        id: "tilt_left",
+        label: "Tilt 1: Left edge visible",
+        instruction: "Rotate card counterclockwise and show LEFT edge",
+        hint: "Raise the left side of your card toward the camera.",
+        check: ({ gamma }) => gamma <= -15,
+    },
+    {
+        id: "tilt_right",
+        label: "Tilt 2: Right edge visible",
+        instruction: "Rotate card clockwise and show RIGHT edge",
+        hint: "Raise the right side of your card toward the camera.",
+        check: ({ gamma }) => gamma >= 15,
+    },
+    {
+        id: "tilt_top",
+        label: "Tilt 3: Top edge visible",
+        instruction: "Tilt card backward and show TOP edge",
+        hint: "Raise the top edge away from you.",
+        check: ({ beta }) => beta <= -15,
+    },
+];
+const TILT_FRAME_TARGET = TILT_DIRECTIONS.length;
+let orientationHandler = null;
+
+function currentTiltDirection() {
+    return TILT_DIRECTIONS[Math.min(tiltCaptureIndex, TILT_FRAME_TARGET - 1)];
+}
+
+function setTiltInstruction(text, goodAngle) {
+    const instructions = document.getElementById("instructions");
+    if (!instructions) return;
+    instructions.textContent = text;
+    instructions.style.color = goodAngle ? "#34d399" : "#ffffff";
+}
 
 function showScreen(screenId) {
     document.querySelectorAll("[data-screen]").forEach((screen) => {
@@ -298,7 +338,10 @@ function saveContactInfo() {
 }
 
 function startDocumentCapture() {
+    stopOrientationGuidance();
     captureStep = "front";
+    capturedTiltPaths = [];
+    tiltCaptureIndex = 0;
     showCaptureScreen();
 }
 
@@ -316,11 +359,28 @@ function updateCaptureUI() {
     const instructions = document.getElementById("instructions");
     const guideBox = document.getElementById("guideBox");
 
+    if (captureStep === "tilt") {
+        const tilt = currentTiltDirection();
+        if (title) title.textContent = tilt.label;
+        if (subtitle) subtitle.textContent = tilt.hint;
+        setTiltInstruction(tilt.instruction, false);
+        if (guideBox) {
+            guideBox.className = "guide-box tilt";
+            const directionClass = `tilt-${tilt.id.replace("tilt_", "")}`;
+            guideBox.classList.add(directionClass);
+        }
+        return;
+    }
+
     if (captureStep === "selfie") {
         if (title) title.textContent = "Capture your selfie";
         if (subtitle) subtitle.textContent = "Make sure your face is centered and clear.";
         if (instructions) instructions.textContent = "Position your face within the frame";
-        if (guideBox) guideBox.classList.add("selfie");
+        if (guideBox) {
+            guideBox.classList.add("selfie");
+            guideBox.classList.remove("tilt");
+        }
+        if (instructions) instructions.style.color = "#ffffff";
         return;
     }
 
@@ -334,7 +394,11 @@ function updateCaptureUI() {
         if (instructions) instructions.textContent = "Position the front within the frame";
     }
 
-    if (guideBox) guideBox.classList.remove("selfie");
+    if (guideBox) {
+        guideBox.classList.remove("selfie");
+        guideBox.classList.remove("tilt");
+    }
+    if (instructions) instructions.style.color = "#ffffff";
 }
 
 async function startCamera() {
@@ -429,6 +493,7 @@ async function confirmPhoto() {
     showStatus("loading", "Uploading image...");
 
     try {
+        const uploadType = captureStep === "tilt" ? currentTiltDirection().id : captureStep;
         const response = await fetch("/capture/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -436,7 +501,7 @@ async function confirmPhoto() {
                 session_id: SESSION_ID,
                 tenant_slug: TENANT_SLUG,
                 image: imageData,
-                type: captureStep,
+                type: uploadType,
             }),
         });
 
@@ -446,7 +511,11 @@ async function confirmPhoto() {
             return;
         }
 
-        capturedPaths[captureStep] = data.filename;
+        if (captureStep === "tilt") {
+            capturedTiltPaths.push(data.filename);
+        } else {
+            capturedPaths[captureStep] = data.filename;
+        }
         hideStatus();
         document.getElementById("previewContainer").classList.remove("active");
 
@@ -460,6 +529,20 @@ async function confirmPhoto() {
 
         if (captureStep === "front" || captureStep === "back") {
             stopCamera();
+            goToTiltGuide();
+            return;
+        }
+
+        if (captureStep === "tilt") {
+            tiltCaptureIndex += 1;
+            if (tiltCaptureIndex < TILT_FRAME_TARGET) {
+                updateCaptureUI();
+                document.getElementById("cameraContainer").classList.add("active");
+                startCamera();
+                return;
+            }
+            stopOrientationGuidance();
+            stopCamera();
             goToLiveness();
             return;
         }
@@ -467,7 +550,7 @@ async function confirmPhoto() {
         if (captureStep === "selfie") {
             stopCamera();
             renderReview();
-            setStep(9);
+            setStep(10);
         }
     } catch (error) {
         showStatus("error", `Upload failed: ${error.message}`);
@@ -482,10 +565,38 @@ function stopCamera() {
 }
 
 function goToLiveness() {
-    setStep(8);
+    stopOrientationGuidance();
+    setStep(9);
+}
+
+function goToTiltCapture() {
+    captureStep = "tilt";
+    tiltCaptureIndex = 0;
+    setStep(8, "captureScreen");
+    updateCaptureUI();
+    document.getElementById("cameraContainer").classList.add("active");
+    document.getElementById("previewContainer").classList.remove("active");
+    startOrientationGuidance();
+    startCamera();
+}
+
+function goToTiltGuide() {
+    stopOrientationGuidance();
+    hideStatus();
+    setStep(8, "tiltScreen");
+}
+
+function startTiltCapture() {
+    goToTiltCapture();
 }
 
 async function startLivenessDetection() {
+    if (capturedTiltPaths.length < TILT_FRAME_TARGET) {
+        showStatus("error", `Tilt check required. Please capture ${TILT_FRAME_TARGET} tilt photos first.`);
+        setTimeout(() => goToTiltGuide(), 900);
+        return;
+    }
+
     if (!SESSION_ID) {
         showStatus("error", "Missing session. Please restart verification.");
         return;
@@ -552,6 +663,12 @@ async function startLivenessDetection() {
 }
 
 function skipLiveness() {
+    if (capturedTiltPaths.length < TILT_FRAME_TARGET) {
+        showStatus("error", `Tilt check required. Please capture ${TILT_FRAME_TARGET} tilt photos first.`);
+        setTimeout(() => goToTiltGuide(), 900);
+        return;
+    }
+
     if (confirm("Skipping liveness detection may reduce security. Continue anyway?")) {
         livenessCompleted = false;
         proceedAfterLiveness();
@@ -559,13 +676,56 @@ function skipLiveness() {
 }
 
 function proceedAfterLiveness() {
+    stopOrientationGuidance();
     hideStatus();
     captureStep = "selfie";
     updateCaptureUI();
-    setStep(8, "captureScreen");
+    setStep(9, "captureScreen");
     document.getElementById("cameraContainer").classList.add("active");
     document.getElementById("previewContainer").classList.remove("active");
     startCamera();
+}
+
+async function startOrientationGuidance() {
+    stopOrientationGuidance();
+    if (!window.DeviceOrientationEvent || captureStep !== "tilt") {
+        return;
+    }
+
+    try {
+        if (typeof window.DeviceOrientationEvent.requestPermission === "function") {
+            const permission = await window.DeviceOrientationEvent.requestPermission();
+            if (permission !== "granted") {
+                return;
+            }
+        }
+    } catch (error) {
+        console.log("Device orientation permission not granted:", error);
+        return;
+    }
+
+    orientationHandler = (event) => {
+        if (captureStep !== "tilt") return;
+        const tilt = currentTiltDirection();
+        if (!tilt) return;
+        const beta = Number(event.beta || 0);
+        const gamma = Number(event.gamma || 0);
+        const goodAngle = tilt.check({ beta, gamma });
+        if (goodAngle) {
+            setTiltInstruction("Good angle detected. Tap Snap now.", true);
+            return;
+        }
+        setTiltInstruction(tilt.instruction, false);
+    };
+
+    window.addEventListener("deviceorientation", orientationHandler, true);
+}
+
+function stopOrientationGuidance() {
+    if (orientationHandler) {
+        window.removeEventListener("deviceorientation", orientationHandler, true);
+        orientationHandler = null;
+    }
 }
 
 function renderReview() {
@@ -587,6 +747,7 @@ function renderReview() {
             <div><strong>Address:</strong> ${flowData.customer.prefecture || ""} ${flowData.customer.city || ""} ${flowData.customer.street_address || ""}</div>
             <div><strong>Contact:</strong> ${flowData.customer.email || ""} ${flowData.customer.phone || ""}</div>
             <div><strong>Document images:</strong> ${capturedPaths.front ? "Front" : ""} ${capturedPaths.back ? "Back" : ""}</div>
+            <div><strong>Tilt frames:</strong> ${capturedTiltPaths.length}/${TILT_FRAME_TARGET}</div>
             <div><strong>Selfie:</strong> ${capturedPaths.selfie ? "Captured" : "Pending"}</div>
             <div><strong>Liveness:</strong> ${livenessCompleted ? "Completed" : "Skipped"}</div>
         </div>
@@ -594,7 +755,7 @@ function renderReview() {
 }
 
 async function submitFlow() {
-    setStep(10);
+    setStep(11);
 
     try {
         const submitRes = await fetch("/session/submit", {
@@ -617,7 +778,7 @@ async function submitFlow() {
         return;
     }
 
-    setStep(11);
+    setStep(12);
     await verifyIdentity();
 }
 
@@ -633,6 +794,7 @@ async function verifyIdentity() {
                 front_image: capturedPaths.front,
                 back_image: capturedPaths.back,
                 selfie_image: capturedPaths.selfie,
+                tilt_images: capturedTiltPaths,
                 liveness_verified: livenessCompleted,
             }),
         });
@@ -659,6 +821,9 @@ function showCompletion(data) {
                 <div><strong>AI check:</strong> ${data.verified ? "Verified" : "Needs review"}</div>
                 <div><strong>Confidence:</strong> ${data.confidence ? data.confidence.toFixed(1) + "%" : "N/A"}</div>
                 <div><strong>Liveness:</strong> ${livenessCompleted ? "Completed" : "Skipped"}</div>
+                <div><strong>Detected card:</strong> ${data.detected_card?.label || flowData.document_type || "N/A"}</div>
+                <div><strong>Card physical check:</strong> ${data.physical_card_check?.verified ? "Passed" : "Needs review"}</div>
+                <div><strong>Physical score:</strong> ${data.physical_card_check?.physical_card_score ? data.physical_card_check.physical_card_score.toFixed(1) + "%" : "N/A"}</div>
             </div>
         `;
     } else {
@@ -668,7 +833,7 @@ function showCompletion(data) {
         resultDetails.innerHTML = "";
     }
 
-    setStep(12);
+    setStep(13);
 }
 
 function showStatus(type, message) {
