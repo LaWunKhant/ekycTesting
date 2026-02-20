@@ -21,6 +21,8 @@
             mouth: 'Open your MOUTH WIDE! 😮'
         };
 
+        const instructionOrder = ['center', 'left', 'right', 'mouth'];
+
         async function init() {
             try {
                 console.log('Starting initialization...');
@@ -32,14 +34,7 @@
                 console.log('TensorFlow ready');
 
                 console.log('Requesting camera access...');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: {
-                        facingMode: 'user',
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    }
-                });
+                const stream = await getFrontCameraStream();
 
                 video.srcObject = stream;
 
@@ -70,8 +65,28 @@
 
             } catch (error) {
                 console.error('Init error:', error);
-                showStatus('error', `Initialization failed: ${error.message}`);
+                const permissionState = await getCameraPermissionState();
+                showStatus('error', getCameraErrorMessage(error, permissionState));
             }
+        }
+
+        async function getFrontCameraStream() {
+            const constraints = [
+                { audio: false, video: { facingMode: { exact: 'user' }, width: { ideal: 720 }, height: { ideal: 960 } } },
+                { audio: false, video: { facingMode: { ideal: 'user' }, width: { ideal: 720 }, height: { ideal: 960 } } },
+                { audio: false, video: { width: { ideal: 720 }, height: { ideal: 960 } } }
+            ];
+
+            let lastError = null;
+            for (const config of constraints) {
+                try {
+                    return await navigator.mediaDevices.getUserMedia(config);
+                } catch (error) {
+                    lastError = error;
+                }
+            }
+
+            throw lastError || new Error('Camera access failed');
         }
 
         async function startDetection() {
@@ -184,7 +199,8 @@
 
         function completeChallenge(challenge) {
             challenges[challenge] = true;
-            document.getElementById(`challenge-${challenge}`).classList.add('completed');
+            const challengeEl = document.getElementById(`challenge-${challenge}`);
+            if (challengeEl) challengeEl.classList.add('completed');
             updateInstruction();
 
             showStatus('success', `✓ ${challenge.toUpperCase()} completed!`);
@@ -196,7 +212,12 @@
         }
 
         function updateInstruction() {
-            document.getElementById('instruction').textContent = instructions[currentInstruction];
+            const instructionEl = document.getElementById('instruction');
+            const index = Math.max(0, instructionOrder.indexOf(currentInstruction));
+            const stepText = `Step ${index + 1}/${instructionOrder.length}`;
+            if (instructionEl) {
+                instructionEl.textContent = `${stepText}: ${instructions[currentInstruction]}`;
+            }
         }
 
         function updateDebug(text) {
@@ -221,6 +242,12 @@
                 challenges: challenges
             };
 
+            // Release camera immediately so parent page can open selfie camera without lock conflicts.
+            if (video && video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
             if (window.opener) {
                 window.opener.postMessage({ type: 'liveness_result', data: result }, '*');
             } else if (window.parent !== window) {
@@ -235,7 +262,7 @@
                     document.getElementById('startBtn').textContent = 'Start Again';
                     isDetecting = false;
                 }
-            }, 3000);
+            }, 350);
         }
 
         function showStatus(type, message) {
@@ -244,11 +271,42 @@
             status.textContent = message;
         }
 
+        async function getCameraPermissionState() {
+            try {
+                if (!navigator.permissions || !navigator.permissions.query) return null;
+                const result = await navigator.permissions.query({ name: 'camera' });
+                return result.state || null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function getCameraErrorMessage(error, permissionState = null) {
+            if (!error) return 'Camera access failed.';
+            if (!window.isSecureContext) return 'Camera requires HTTPS (or localhost).';
+            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                if (permissionState === 'granted') return 'Camera is busy in another tab/window. Please close other camera pages and retry.';
+                return 'Camera permission denied. Please allow camera access in browser settings.';
+            }
+            if (error.name === 'NotReadableError' || error.name === 'TrackStartError') return 'Camera is already in use by another application.';
+            if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') return 'No camera found on this device.';
+            if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') return 'Front camera is not available with current settings. Please retry.';
+            return `Initialization failed: ${error.message || 'Unknown camera error.'}`;
+        }
+
         window.addEventListener('load', init);
 
         window.addEventListener('beforeunload', () => {
             if (detectionInterval) clearInterval(detectionInterval);
             if (video && video.srcObject) {
                 video.srcObject.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        window.addEventListener('pagehide', () => {
+            if (detectionInterval) clearInterval(detectionInterval);
+            if (video && video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
             }
         });

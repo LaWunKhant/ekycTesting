@@ -4,14 +4,13 @@
     box-sizing: border-box;
 }
 
-.hidden {
-    display: none;
+html, body {
+    min-width: 320px;
 }
 
-.step-indicator {
-    display: grid;
-    gap: 12px;
-}
+.hidden { display: none; }
+
+.step-indicator { display: grid; gap: 12px; }
 
 .step-track {
     position: relative;
@@ -30,304 +29,583 @@
     transition: width 0.3s ease;
 }
 
-.step-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
+.step-meta { display: flex; flex-direction: column; gap: 4px; }
 
-.screen {
-    display: none;
-}
+.screen { display: none; }
+.screen.active { display: block; }
 
-.screen.active {
-    display: block;
-}
-
+/* ── CAMERA CONTAINER ────────────────────────────────────────────────────── */
 .camera-container {
-    position: relative;
+    position: fixed;
+    inset: 0;
     display: none;
     overflow: hidden;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    background: #000;
+    z-index: 99999;
+    border-radius: 0 !important;
 }
+.camera-container.active { display: block; }
 
-.camera-container.active {
-    display: block;
-}
-
+/* ── VIDEO ───────────────────────────────────────────────────────────────── */
 #video {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     display: block;
     object-fit: cover;
-    background: #000000;
-    transform: scaleX(-1);
+    background: #000;
+    transform: scaleX(-1); /* default: mirror for front cam */
 }
-
 #video.no-mirror {
-    transform: scaleX(1);
+    transform: scaleX(1) !important; /* rear cam: never mirror */
 }
+#canvas { display: none; }
 
-#canvas {
-    display: none;
-}
-
+/* ── OVERLAY: dark gradient vignette over the live video ─────────────────── */
 .camera-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.60) 0%,
+        rgba(0,0,0,0.08) 28%,
+        rgba(0,0,0,0.08) 66%,
+        rgba(0,0,0,0.65) 100%
+    );
 }
+.camera-overlay > * { pointer-events: none; }
 
-.guide-box {
+/* ── HEADER (Camera Mode1 / Tilt / yellow subtitle) ─────────────────────── */
+.camera-header-overlay {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    height: 60%;
-    border: 3px dashed rgba(255, 255, 255, 0.7);
-    border-radius: 20px;
-}
-
-.guide-box.selfie {
-    width: 60%;
-    height: 70%;
-    border-radius: 9999px;
-}
-
-.guide-box.tilt {
-    position: absolute;
-    width: 70%;
-    height: 45%;
-    border: 3px dashed #06b6d4;
-    border-radius: 12px;
-    transform: translate(-50%, -50%);
-}
-
-.guide-box.tilt::before {
-    content: "";
-    position: absolute;
-    width: 0;
-    height: 0;
-    border-style: solid;
-}
-
-.guide-box.tilt-left::before {
-    border-width: 15px 20px 15px 0;
-    border-color: transparent #06b6d4 transparent transparent;
-    left: -25px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.guide-box.tilt-right::before {
-    border-width: 15px 0 15px 20px;
-    border-color: transparent transparent transparent #06b6d4;
-    right: -25px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.guide-box.tilt-top::before {
-    border-width: 0 15px 20px 15px;
-    border-color: transparent transparent #06b6d4 transparent;
-    top: -25px;
+    top: max(12px, env(safe-area-inset-top));
     left: 50%;
     transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 560px;
+    text-align: center;
+    z-index: 3;
 }
 
-.guide-box.tilt::after {
-    content: "";
-    position: absolute;
-    width: 80%;
-    height: 80%;
-    background: rgba(6, 182, 212, 0.1);
-    border: 2px solid #06b6d4;
-    border-radius: 8px;
-    top: 10%;
-    left: 10%;
+.camera-mode-label {
+    display: inline-block;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    border-radius: 999px;
+    color: #e2e8f0;
+    background: rgba(15,23,42,0.82);
 }
 
-.guide-box.tilt-left::after {
-    transform: perspective(400px) rotateY(-30deg);
-    transform-origin: right center;
-}
-
-.guide-box.tilt-right::after {
-    transform: perspective(400px) rotateY(30deg);
-    transform-origin: left center;
-}
-
-.guide-box.tilt-top::after {
-    transform: perspective(400px) rotateX(30deg);
-    transform-origin: center bottom;
-}
-
-.camera-instructions {
-    position: absolute;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.85);
-    color: #ffffff;
-    padding: 10px 18px;
-    border-radius: 9999px;
-    font-size: 13px;
-    white-space: nowrap;
-}
-
-.tilt-guide-card {
-    width: 180px;
-    height: 110px;
-    border: 3px dashed #0891b2;
-    border-radius: 14px;
-    transform: rotate(-14deg);
-    background: linear-gradient(145deg, rgba(6, 182, 212, 0.16), rgba(59, 130, 246, 0.1));
-}
-
-.capture-btn {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 68px;
-    height: 68px;
-    border-radius: 9999px;
-    border: 4px solid rgba(14, 165, 233, 0.8);
-    background: #ffffff;
+.camera-live-title {
+    margin-top: 8px;
     font-size: 22px;
-    cursor: pointer;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    font-weight: 700;
+    color: #f8fafc;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.70);
+}
+
+.camera-live-subtitle {
+    margin-top: 5px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fcd34d;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.70);
+}
+
+/* ── GUIDE ILLUSTRATION CONTAINER ───────────────────────────────────────── */
+/*
+ * The guide illustration is a TRANSPARENT OUTLINE drawn over the live feed.
+ * Users can see their real card through it — that is correct and intentional.
+ * Desktop: hidden by default (uses guide-box instead). JS forces display:block.
+ * Mobile: @media block makes it always display:block.
+ */
+.guide-illustration {
+    position: absolute;
+    top: 46%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(88vw, 600px);
+    height: clamp(200px, 38vh, 340px);
+    display: none; /* overridden by @media (max-width:640px) and by JS */
+    z-index: 2;
+    pointer-events: none;
+}
+.guide-illustration.tilt-mode {
+    top: 47%;
+    width: min(74vw, 500px);
+    height: clamp(180px, 32vh, 270px);
+}
+
+/* ── ILLUSTRATED CARD ────────────────────────────────────────────────────── */
+/*
+ * Purely a transparent outline. Background = transparent so real card shows.
+ * The border + subtle glow = the "frame" that tells the user where to place card.
+ */
+.illustrated-card {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    background: transparent;
+    border: 3px solid rgba(255,255,255,0.80);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.25), inset 0 0 0 1px rgba(255,255,255,0.10);
+    padding: 14px;
+    transform: none;
+    overflow: visible;
+}
+
+/* TILT MODE
+ * Trapezoid frame: wide at bottom (near/camera), narrow at top (far away).
+ * Drawn as an inline SVG injected by JS into .illustrated-card.mode-tilt.
+ * The card itself is transparent — real card shows through.
+ */
+.illustrated-card.mode-tilt {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    transform: perspective(920px) rotateX(5deg);
+    transform-origin: center bottom;
+    overflow: visible;
+}
+
+/* SVG trapezoid injected by JS */
+.illustrated-card.mode-tilt svg.tilt-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.illustrated-card.mode-tilt::before { display: none; }
+.illustrated-card.mode-tilt::after  { display: none; }
+
+/* Hide content elements in tilt mode — they clutter the real card view */
+.illustrated-card.mode-tilt .card-detail-lines { display: none; }
+.illustrated-card.mode-tilt .card-photo-placeholder { display: none !important; }
+/* Hide the "ALIGN YOUR ID CARD" label in tilt mode — real card shows through */
+.illustrated-card.mode-tilt .card-align-text { display: none; }
+
+/* SELFIE MODE */
+.illustrated-card.mode-selfie {
+    border: 3px solid #34d399;
+    background: transparent;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(52,211,153,0.28);
+}
+
+/* Multi-direction variants */
+.illustrated-card.tilt-left  { transform: perspective(900px) rotateY(-26deg); transform-origin: right center; }
+.illustrated-card.tilt-right { transform: perspective(900px) rotateY(26deg);  transform-origin: left center; }
+.illustrated-card.tilt-top   { transform: perspective(900px) rotateX(22deg);  transform-origin: center bottom; }
+
+/* ── TOP EDGE BADGE ──────────────────────────────────────────────────────── */
+.top-edge-indicator {
+    display: none;
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.10em;
+    color: #111827;
+    background: #fbbf24;
+    border: 2px solid rgba(255,255,255,0.90);
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.26);
+    z-index: 4;
+}
+.illustrated-card.mode-tilt .top-edge-indicator { display: inline-flex; }
+
+/* ── CARD CONTENT (front/back modes only) ────────────────────────────────── */
+.card-align-text {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.95);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(15,23,42,0.78);
+}
+.card-detail-lines { width: calc(100% - 90px); }
+.card-line { height: 3px; border-radius: 999px; margin-bottom: 7px; background: rgba(255,255,255,0.50); }
+.card-line.short  { width: 45%; }
+.card-line.medium { width: 68%; }
+.card-line.long   { width: 88%; }
+
+.card-photo-placeholder {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 68px;
+    height: 86px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease, background 0.2s ease;
+    color: #0f172a;
+    background: linear-gradient(145deg, #fde68a, #f59e0b);
+    border: 2px solid rgba(255,255,255,0.70);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.28);
 }
 
-.capture-btn:hover {
-    transform: translateX(-50%) scale(1.05);
-    background: #f8fafc;
+/* ── DIRECTION ARROW ────────────────────────────────────────────────────── */
+.direction-arrow {
+    position: absolute;
+    font-size: 34px;
+    font-weight: 900;
+    color: #fcd34d;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.60);
+    animation: arrowPulse 1.2s ease-in-out infinite;
+    opacity: 0;
+    pointer-events: none;
 }
+.direction-arrow.left  { left: -36px; top: 50%; transform: translateY(-50%); }
+.direction-arrow.right { right: -36px; top: 50%; transform: translateY(-50%); }
+.direction-arrow.top   { top: -40px; left: 50%; transform: translateX(-50%); }
 
-.capture-btn:active {
-    transform: translateX(-50%) scale(0.98);
-}
+@keyframes arrowPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
-.preview-container {
+/* Hide arrow in tilt mode (single-frame, no direction needed) */
+.guide-illustration.tilt-mode .direction-arrow { display: none; }
+.guide-illustration.tilt-mode .hand-illustration { display: none; }
+
+/* ── HAND ILLUSTRATION ───────────────────────────────────────────────────── */
+.hand-illustration {
     display: none;
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    transform: translateX(-50%);
+    width: min(68vw, 230px);
+    z-index: 3;
 }
-
-.preview-container.active {
-    display: block;
+.hand-chip {
+    display: inline-block;
+    margin: 0 auto 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #e5e7eb;
+    background: rgba(15,23,42,0.86);
 }
+.hand-svg { width: 100%; height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.40)); }
 
-.preview-image {
-    max-width: 100%;
-    border-radius: 18px;
-    box-shadow: 0 16px 35px rgba(15, 23, 42, 0.18);
+/* ── DESKTOP GUIDE BOX ───────────────────────────────────────────────────── */
+.guide-box {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 88%; height: 56%;
+    max-width: 580px; max-height: 360px;
+    border: 3px dashed rgba(6,182,212,0.80);
+    border-radius: 14px;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.32);
 }
-
-.btn {
-    font: inherit;
-    cursor: pointer;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.liveness-screen {
-    display: none;
-}
-
-.liveness-screen.active {
-    display: block;
-}
-
-.liveness-icon {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-.verification-result {
-    display: none;
-}
-
-.verification-result.active {
-    display: block;
-}
-
-.result-icon {
-    font-size: 64px;
-}
-
-.result-icon.success {
-    color: #16a34a;
-}
-
-.result-icon.failed {
-    color: #dc2626;
-}
-
-.status-message {
-    display: none;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-weight: 600;
-    margin-top: 16px;
-}
-
-.status-message.active {
-    display: block;
-}
-
-.status-message.success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #86efac;
-}
-
-.status-message.error {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
-}
-
-.status-message.loading {
-    background: #e0f2fe;
-    color: #0c4a6e;
-    border: 1px solid #bae6fd;
-}
-
-.status-message.warning {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
-}
-
-.spinner {
-    border: 3px solid #e2e8f0;
-    border-top: 3px solid #0ea5e9;
+.guide-box.selfie {
+    width: 62%; height: 70%;
+    max-width: 310px;
     border-radius: 50%;
-    width: 26px;
-    height: 26px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 10px;
+    border-color: rgba(6,182,212,0.90);
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.22);
+}
+.guide-box.tilt {
+    width: 88%; height: 52%;
+    border: 3px dashed #fbbf24;
+    border-radius: 10px;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.40);
+}
+.guide-box.tilt::before,
+.guide-box.tilt::after { display: none; }
+
+.corner { position: absolute; width: 22px; height: 22px; border: 3px solid #06b6d4; z-index: 2; }
+.corner-tl { top:-2px;    left:-2px;  border-right:0; border-bottom:0; border-top-left-radius:8px; }
+.corner-tr { top:-2px;    right:-2px; border-left:0;  border-bottom:0; border-top-right-radius:8px; }
+.corner-bl { bottom:-2px; left:-2px;  border-right:0; border-top:0;    border-bottom-left-radius:8px; }
+.corner-br { bottom:-2px; right:-2px; border-left:0;  border-top:0;    border-bottom-right-radius:8px; }
+.guide-box.tilt .corner { border-color: #fbbf24; }
+
+/* ── INSTRUCTION TEXT ────────────────────────────────────────────────────── */
+.camera-instructions {
+    position: absolute;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,23,42,0.90);
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    z-index: 3;
+}
+.camera-instructions.success { background: rgba(16,185,129,0.95); }
+.camera-instructions.warning { background: rgba(245,158,11,0.95); }
+
+/* ── WARNING BANNER (above Snap button) ──────────────────────────────────── */
+.camera-warning-text {
+    position: absolute;
+    left: 50%; bottom: 106px;
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fef3c7;
+    background: rgba(120,53,15,0.72);
+    white-space: nowrap;
+    z-index: 3;
+    text-align: center;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* ── TILT GUIDE CARD (instruction screen only) ───────────────────────────── */
+.tilt-guide-card {
+    width: 160px; height: 100px;
+    border: 3px dashed #0891b2;
+    border-radius: 12px;
+    transform: rotate(-12deg);
+    background: linear-gradient(145deg, rgba(6,182,212,0.14), rgba(59,130,246,0.08));
 }
 
+/* ── SNAP BUTTON ─────────────────────────────────────────────────────────── */
+.capture-btn {
+    position: fixed;
+    bottom: max(34px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    width: 72px; height: 72px;
+    border-radius: 9999px;
+    border: 4px solid rgba(14,165,233,0.85);
+    background: #fff;
+    font-size: 15px; font-weight: 700; color: #0f172a;
+    cursor: pointer;
+    box-shadow: 0 8px 28px rgba(15,23,42,0.40);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s ease, background 0.15s ease;
+    z-index: 120005;
+    pointer-events: auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.capture-btn:hover  { transform: translateX(-50%) scale(1.06); background: #f1f5f9; }
+.capture-btn:active { transform: translateX(-50%) scale(0.97); }
+
+/* ── PREVIEW ─────────────────────────────────────────────────────────────── */
+.preview-container {
+    display: none; position: fixed; inset: 0;
+    z-index: 100000; background: #000;
+    padding: 16px; gap: 16px;
+    align-items: center; justify-content: center; flex-direction: column;
+}
+.preview-container.active { display: flex; }
+.preview-image {
+    width: min(100%, 980px);
+    height: min(70dvh, 760px);
+    max-height: 70dvh;
+    object-fit: contain;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.65);
+    box-shadow: 0 12px 32px rgba(15,23,42,0.20);
+}
+
+/* ── MISC ────────────────────────────────────────────────────────────────── */
+.btn { font: inherit; cursor: pointer; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.liveness-screen { display: none; }
+.liveness-screen.active { display: block; }
+.liveness-icon { animation: pulse 2s infinite; }
+.liveness-instructions {
+    box-shadow: 0 10px 28px rgba(16, 185, 129, 0.12);
+}
+.liveness-note {
+    font-weight: 600;
+}
+@keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
+.verification-result { display: none; }
+.verification-result.active { display: block; }
+.result-icon { font-size: 64px; }
+.result-icon.success { color: #16a34a; }
+.result-icon.failed  { color: #dc2626; }
+.status-message { display:none; padding:12px 16px; border-radius:12px; font-weight:600; margin-top:16px; }
+.status-message.active  { display: block; }
+.status-message.success { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+.status-message.error   { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+.status-message.loading { background:#e0f2fe; color:#0c4a6e; border:1px solid #bae6fd; }
+.status-message.warning { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+.spinner { border:3px solid #e2e8f0; border-top-color:#0ea5e9; border-radius:50%; width:26px; height:26px; animation:spin 0.9s linear infinite; margin:0 auto 10px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE  ≤ 640px
+   ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
-    .step {
-        width: 32px;
-        height: 32px;
-        font-size: 12px;
+    .kyc-shell {
+        min-width: 320px;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
     }
+
+    .camera-container {
+        position: fixed !important;
+        top:0;
+        left:50%;
+        transform: translateX(-50%);
+        width:max(100vw, 320px);
+        min-width:320px;
+        height:100dvh; min-height:100dvh;
+        border-radius:0; border:none !important; box-shadow:none !important;
+    }
+
+    /* Hide desktop guide-box, use illustration instead */
+    .guide-box { display: none !important; }
+    .camera-container.selfie-mode .guide-box {
+        display: block !important;
+        width: 62%;
+        height: 70%;
+        max-width: 310px;
+        border-radius: 50%;
+        border: 3px dashed rgba(6,182,212,0.90);
+        box-shadow: 0 0 0 2000px rgba(0,0,0,0.22);
+    }
+    .camera-container.selfie-mode .guide-illustration { display: none !important; }
+
+    /* Show guide illustration always on mobile */
+    .guide-illustration {
+        display: block;
+        top: 44%;
+        width: clamp(300px, 88vw, 520px);
+        height: clamp(175px, 34vh, 280px);
+    }
+    .guide-illustration.tilt-mode {
+        top: 44%;
+        width: clamp(300px, 84vw, 500px);
+        height: clamp(170px, 24vh, 210px);
+    }
+
+    /* Tilt mode: SVG trapezoid handles the border, no CSS transform needed */
+    .illustrated-card.mode-tilt {
+        transform: perspective(920px) rotateX(3.5deg);
+        border: none;
+    }
+
+    /* Darker vignette for mobile readability */
+    .camera-overlay {
+        background: linear-gradient(
+            to bottom,
+            rgba(0,0,0,0.65) 0%,
+            rgba(0,0,0,0.06) 26%,
+            rgba(0,0,0,0.06) 64%,
+            rgba(0,0,0,0.72) 100%
+        );
+        padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+    }
+
+    .camera-header-overlay { top: max(10px, env(safe-area-inset-top)); }
+    .camera-mode-label { font-size: 10px; padding: 4px 12px; }
+    .camera-live-title { margin-top: 6px; font-size: 20px; }
+    .camera-live-subtitle { margin-top: 3px; font-size: 14px; }
+
+    /* Instructions at bottom on mobile */
+    .camera-instructions {
+        top: auto;
+        bottom: 164px;
+        white-space: normal;
+        max-width: calc(100% - 24px);
+        font-size: 13px;
+        border-radius: 10px;
+        padding: 8px 12px;
+        text-align: center;
+        background: rgba(15,23,42,0.76);
+    }
+    .camera-instructions.success,
+    .camera-instructions.warning { background: rgba(15,23,42,0.76); }
+
+    .camera-warning-text {
+        bottom: 110px;
+        max-width: calc(100% - 32px);
+        white-space: normal;
+        text-align: center;
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
+
+    .capture-btn {
+        width: 80px; height: 80px;
+        bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    .preview-image {
+        width: 100%;
+        height: auto;
+        max-height: calc(100dvh - 210px);
+        object-fit: contain;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.78);
+    }
+    .preview-container {
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: max(14px, env(safe-area-inset-bottom));
+        min-width: 0;
+        width: 100vw;
+        left: 0;
+        transform: none;
+    }
+    .preview-container .button-group {
+        width: 100%;
+        max-width: 420px;
+        margin-top: 0 !important;
+    }
+
+    body.camera-active { overflow: hidden; }
+    .step { width:32px; height:32px; font-size:12px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FULLSCREEN ENFORCEMENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+body.camera-active #cameraContainer {
+    position:fixed !important; top:0 !important; left:0 !important;
+    width:100dvw !important; height:100dvh !important; min-height:100dvh !important;
+    margin:0 !important; transform:none !important; border-radius:0 !important;
+    border:none !important; box-shadow:none !important; z-index:99999 !important;
+}
+body.camera-active #previewContainer {
+    position:fixed !important; top:0 !important; left:0 !important;
+    width:100dvw !important; height:100dvh !important; transform:none !important; z-index:100000 !important;
+}
+body.camera-active .min-h-screen.bg-gradient-to-br { display:none !important; }
+
+.hand-guide {
+    position:absolute; left:-16px; bottom:-16px;
+    width:52px; height:52px; border-radius:12px;
+    background:rgba(15,23,42,0.72); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; z-index:3;
 }

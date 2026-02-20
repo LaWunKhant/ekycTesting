@@ -185,6 +185,7 @@ def session_status(request, session_id):
         "front_image": session.front_image,
         "back_image": session.back_image,
         "selfie_image": session.selfie_image,
+        "thickness_card": session.thickness_card,
         "tilt_frames": session.tilt_frames,
         "liveness_running": session.liveness_running,
         "liveness_completed": session.liveness_completed,
@@ -347,8 +348,9 @@ def capture_image(request):
         frames = list(session.tilt_frames or [])
         frames.append(filename)
         session.tilt_frames = frames[-5:]
+        session.thickness_card = filename
         session.current_step = max(session.current_step, 5)
-        update_fields.extend(["tilt_frames", "current_step"])
+        update_fields.extend(["tilt_frames", "thickness_card", "current_step"])
     else:
         setattr(session, col, filename)
         doc_col = doc_col_map.get(image_type)

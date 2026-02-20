@@ -96,7 +96,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Optional: set this to your ngrok URL for shareable links
-PUBLIC_BASE_URL = "https://1ba7-240b-11-9a20-a400-1091-bcbd-92e7-77c9.ngrok-free.app"
+PUBLIC_BASE_URL = "https://72e3-130-62-79-44.ngrok-free.app"
 
 # Looking to send emails in production? Check out our Email API/SMTP product!
 EMAIL_HOST = 'sandbox.smtp.mailtrap.io'

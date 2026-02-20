@@ -21,9 +21,9 @@
             min-height: 100vh;
         }
     </style>
-    <link rel="stylesheet" href="{% static 'css/liveness.css' %}">
+    <link rel="stylesheet" href="{% static 'css/liveness.css' %}?v=20260219-3">
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen liveness-fullscreen">
     <!-- Background decorative elements (matching main page) -->
     <div class="min-h-screen bg-gradient-to-br from-teal-950 via-teal-800 to-emerald-600">
         <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -33,15 +33,15 @@
         </div>
 
         <!-- Main container -->
-        <div class="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-10">
-            <div class="rounded-3xl border border-white/20 bg-white/95 shadow-2xl shadow-slate-900/40 backdrop-blur-sm">
+        <div class="relative mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-3 py-4 sm:px-6 sm:py-10 liveness-shell">
+            <div class="rounded-3xl border border-white/20 bg-white/95 shadow-2xl shadow-slate-900/40 backdrop-blur-sm liveness-card">
 
                 <!-- Header -->
-                <div class="header bg-gradient-to-r from-teal-700 via-teal-700 to-emerald-600 px-8 py-7 text-white rounded-t-3xl">
+                <div class="header liveness-header bg-gradient-to-r from-teal-700 via-teal-700 to-emerald-600 px-4 py-5 text-white rounded-t-3xl sm:px-8 sm:py-7">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <div class="text-xs uppercase tracking-[0.3em] text-white/80">Step 5 of 5</div>
-                            <h1 class="mt-2 text-3xl font-bold tracking-tight">Liveness Check</h1>
+                            <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Liveness Check</h1>
                             <p class="mt-2 text-sm text-white/90">Verify you are present</p>
                             <p class="mt-1 text-xs text-white/70">Quick movement prompts confirm a live face.</p>
                         </div>
@@ -52,7 +52,7 @@
                 </div>
 
                 <!-- Content -->
-                <div class="content px-8 py-8">
+                <div class="content liveness-content px-4 py-4 sm:px-8 sm:py-8">
                     <!-- Loading Screen -->
                     <div id="loadingScreen" class="loading">
                         <div class="spinner"></div>
@@ -63,10 +63,10 @@
 
                     <!-- Main Screen -->
                     <div id="mainScreen" class="hidden">
-                        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)] lg:items-start">
+                        <div class="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)] lg:items-start liveness-main">
 
                             <!-- Video Feed -->
-                            <div class="space-y-4">
+                            <div class="space-y-4 liveness-video-wrap">
                                 <div class="video-container shadow-xl shadow-slate-900/30">
                                     <video id="video" autoplay playsinline muted></video>
                                     <div class="overlay">
@@ -76,7 +76,7 @@
                                 </div>
 
                                 <!-- Tips -->
-                                <div class="rounded-xl bg-teal-50 border border-teal-200 p-4">
+                                <div class="hidden rounded-xl bg-teal-50 border border-teal-200 p-4 sm:block liveness-tips">
                                     <h3 class="text-sm font-semibold text-teal-900 mb-2">💡 Tips for best results</h3>
                                     <ul class="text-xs text-teal-800 space-y-1">
                                         <li>• Ensure good lighting on your face</li>
@@ -88,9 +88,9 @@
                             </div>
 
                             <!-- Right Sidebar -->
-                            <div class="space-y-5">
+                            <div class="space-y-5 liveness-sidebar">
                                 <!-- Challenge List -->
-                                <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+                                <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm challenge-panel">
                                     <h2 class="text-base font-bold text-slate-800 mb-1">Live prompts</h2>
                                     <p class="text-xs text-slate-600 mb-4">Complete all steps to verify</p>
 
@@ -138,7 +138,7 @@
                 </div>
 
                 <!-- Footer (optional) -->
-                <div class="px-8 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-3xl">
+                <div class="px-8 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-3xl page-footer">
                     <p class="text-xs text-slate-600 text-center">
                         Your privacy is protected. Face data is processed locally and not stored.
                     </p>
@@ -147,6 +147,6 @@
         </div>
     </div>
 
-    <script src="{% static 'js/liveness.js' %}"></script>
+    <script src="{% static 'js/liveness.js' %}?v=20260219-1"></script>
 </body>
 </html>

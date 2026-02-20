@@ -5,14 +5,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tenant Dashboard - MoonKYC</title>
+    <script>
+        (function () {
+            const stored = localStorage.getItem("theme");
+            const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const theme = stored || (prefersDark ? "dark" : "light");
+            document.documentElement.classList.toggle("dark", theme === "dark");
+        })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root {
-            color-scheme: dark;
+    <script>
+        tailwind.config = { darkMode: "class" };
+        if (window.tailwind && typeof window.tailwind.refresh === "function") {
+            window.tailwind.refresh();
         }
+    </script>
+    <style>
         body {
             font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         }
@@ -49,6 +60,7 @@
                     <button id="theme-toggle" type="button" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Toggle theme">
                         <span data-theme-label>Theme</span>
                     </button>
+                    <a href="/bug/liveness/?tenant_slug={{ tenant.slug }}&autostart=1" class="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 dark:border-amber-700/40 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/40">Temp: Liveness Debug</a>
                     <a href="/dashboard/team/" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800">Manage Team</a>
                     <a href="/review/" class="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-200">Review Queue</a>
                     <a href="/accounts/logout/" class="text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">Logout</a>
@@ -165,6 +177,7 @@
                             <th class="text-left px-4 py-3 font-medium">Session ID</th>
                             <th class="text-left px-4 py-3 font-medium">Status</th>
                             <th class="text-left px-4 py-3 font-medium">Review</th>
+                            <th class="text-left px-4 py-3 font-medium">Images</th>
                             <th class="text-left px-4 py-3 font-medium">Created</th>
                             <th class="text-left px-4 py-3 font-medium"></th>
                         </tr>
@@ -192,6 +205,48 @@
                             <td class="px-4 py-3">
                                 <span class="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-300">{{ s.review_status }}</span>
                             </td>
+                            <td class="px-4 py-3">
+                                <div class="grid grid-cols-4 gap-2 min-w-[180px]">
+                                    <div class="text-center">
+                                        {% if s.document_front_url %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.document_front_url }}" alt="Front">
+                                        {% elif s.front_image %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.front_image }}" alt="Front">
+                                        {% else %}
+                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
+                                        {% endif %}
+                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Front</div>
+                                    </div>
+                                    <div class="text-center">
+                                        {% if s.document_back_url %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.document_back_url }}" alt="Back">
+                                        {% elif s.back_image %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.back_image }}" alt="Back">
+                                        {% else %}
+                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
+                                        {% endif %}
+                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Back</div>
+                                    </div>
+                                    <div class="text-center">
+                                        {% if s.thickness_card %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.thickness_card }}" alt="Thickness">
+                                        {% else %}
+                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
+                                        {% endif %}
+                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Thickness</div>
+                                    </div>
+                                    <div class="text-center">
+                                        {% if s.selfie_url %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.selfie_url }}" alt="Selfie">
+                                        {% elif s.selfie_image %}
+                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.selfie_image }}" alt="Selfie">
+                                        {% else %}
+                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
+                                        {% endif %}
+                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Selfie</div>
+                                    </div>
+                                </div>
+                            </td>
                             <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ s.created_at }}</td>
                             <td class="px-4 py-3">
                                 <a class="text-cyan-400 hover:text-cyan-300" href="{% url 'review_session_detail' s.id %}">Review</a>
@@ -199,7 +254,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td class="px-4 py-6 text-slate-500 dark:text-slate-400" colspan="7">No sessions yet.</td>
+                            <td class="px-4 py-6 text-slate-500 dark:text-slate-400" colspan="8">No sessions yet.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

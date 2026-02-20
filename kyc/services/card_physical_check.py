@@ -64,7 +64,7 @@ def _analyze_single_frame(path: str) -> Dict[str, float]:
 
 def analyze_card_physicality(image_paths: List[str]) -> Dict[str, float]:
     existing_paths = [p for p in image_paths if p and os.path.exists(p)]
-    if len(existing_paths) < 2:
+    if len(existing_paths) < 1:
         return {
             "verified": False,
             "physical_card_score": 0.0,
@@ -76,7 +76,7 @@ def analyze_card_physicality(image_paths: List[str]) -> Dict[str, float]:
 
     metrics = [_analyze_single_frame(path) for path in existing_paths]
     valid = [m for m in metrics if m["ok"] > 0]
-    if len(valid) < 2:
+    if len(valid) < 1:
         return {
             "verified": False,
             "physical_card_score": 0.0,
@@ -84,6 +84,23 @@ def analyze_card_physicality(image_paths: List[str]) -> Dict[str, float]:
             "depth_variation_score": 0.0,
             "frames_used": len(valid),
             "reason": "card_not_detected",
+        }
+
+    if len(valid) == 1:
+        edge_consistency = float(np.clip(valid[0]["edge_strength"], 0.0, 1.0))
+        area_ratio = float(np.clip(valid[0]["area_ratio"], 0.0, 1.0))
+        # Single-frame fallback: weaker confidence than multi-frame depth checks.
+        score = float(np.clip((0.75 * edge_consistency) + (0.25 * min(area_ratio * 2.0, 1.0)), 0.0, 1.0))
+        verified = score >= 0.42
+        return {
+            "verified": bool(verified),
+            "physical_card_score": _safe_float(score * 100.0),
+            "edge_consistency_score": _safe_float(edge_consistency * 100.0),
+            "depth_variation_score": 0.0,
+            "frames_used": 1,
+            "area_spread": 0.0,
+            "angle_spread": 0.0,
+            "reason": "single_frame_check",
         }
 
     edge_vals = np.array([m["edge_strength"] for m in valid], dtype=np.float32)

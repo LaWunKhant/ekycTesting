@@ -91,6 +91,7 @@ class VerificationSession(models.Model):
     document_front_url = models.CharField(max_length=255, blank=True, null=True)
     document_back_url = models.CharField(max_length=255, blank=True, null=True)
     selfie_url = models.CharField(max_length=255, blank=True, null=True)
+    thickness_card = models.CharField(max_length=255, blank=True, null=True)
     tilt_frames = models.JSONField(blank=True, null=True)
     detected_card_type = models.CharField(max_length=80, blank=True, null=True)
 

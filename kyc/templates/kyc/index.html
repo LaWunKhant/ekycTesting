@@ -14,7 +14,7 @@
             font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         }
     </style>
-    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}?v=main-24">
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
     {% if tenant_slug %}
@@ -33,7 +33,7 @@
             <div class="absolute top-32 -right-20 h-96 w-96 rounded-full bg-cyan-200/30 blur-3xl"></div>
             <div class="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-blue-200/30 blur-3xl"></div>
         </div>
-        <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-10">
+        <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-10 kyc-shell">
             <div class="rounded-3xl border border-slate-200 bg-white/85 shadow-2xl shadow-slate-200/60 backdrop-blur">
                 <div class="header border-b border-slate-200 px-8 py-6">
                     <div class="flex flex-wrap items-center justify-between gap-4">
@@ -214,24 +214,6 @@
                             <h2 class="mt-2 text-xl font-semibold" id="captureTitle">Capture the front of your document</h2>
                             <p class="mt-1 text-sm text-slate-600" id="captureSubtitle">Make sure all details are clear and readable.</p>
                         </div>
-
-                        <div class="camera-container mt-6 rounded-3xl border border-slate-200 bg-slate-900/95 shadow-xl shadow-slate-300/30" id="cameraContainer">
-                            <video id="video" autoplay playsinline></video>
-                            <canvas id="canvas"></canvas>
-                            <div class="camera-overlay">
-                                <div class="guide-box" id="guideBox"></div>
-                                <div class="camera-instructions" id="instructions">Position your document within the frame</div>
-                            </div>
-                            <button class="capture-btn" id="captureBtn">Snap</button>
-                        </div>
-
-                        <div class="preview-container text-center" id="previewContainer">
-                            <img id="previewImage" class="preview-image" alt="Captured image">
-                            <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
-                                <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="retakePhoto()">Retake Photo</button>
-                                <button class="btn btn-primary w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500" onclick="confirmPhoto()">Use This Photo</button>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="screen hidden" id="tiltScreen" data-screen>
@@ -252,9 +234,9 @@
                                 <div class="tilt-guide-card mx-auto mb-4"></div>
                                 <ol class="list-decimal space-y-2 pl-5 text-sm text-cyan-900">
                                     <li>Hold the real ID card in your hand (not screen/photo).</li>
-                                    <li>Tilt 1: Show LEFT edge (counterclockwise).</li>
-                                    <li>Tilt 2: Show RIGHT edge (clockwise).</li>
-                                    <li>Tilt 3: Show TOP edge (tilt backward).</li>
+                                    <li>Take one thickness photo only.</li>
+                                    <li>Tilt backward so the TOP edge is visible.</li>
+                                    <li>Keep the card steady and centered, then tap Snap.</li>
                                 </ol>
                             </div>
 
@@ -288,13 +270,13 @@
                                 </ol>
 
                                 <div class="liveness-note mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                                    This will open a separate window for liveness detection. Complete the challenges and return here.
+                                    Liveness opens automatically in fullscreen. If blocked, tap the retry button below.
                                 </div>
                             </div>
 
                             <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
                                 <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="skipLiveness()">Skip liveness</button>
-                                <button class="btn btn-primary w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/60 hover:bg-emerald-500" onclick="startLivenessDetection()">Start Liveness Check</button>
+                                <button class="btn btn-primary w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/60 hover:bg-emerald-500" onclick="startLivenessDetection()">Retry / Start Liveness</button>
                             </div>
                         </div>
                     </div>
@@ -337,6 +319,57 @@
         </div>
     </div>
 
-    <script src="{% static 'js/main.js' %}?v=tilt-check-3" defer></script>
+    <div class="camera-container" id="cameraContainer">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="camera-overlay">
+            <div class="camera-header-overlay">
+                <div class="camera-mode-label" id="cameraModeLabel">Document mode</div>
+                <div class="camera-live-title" id="cameraLiveTitle">Capture document</div>
+                <div class="camera-live-subtitle" id="cameraLiveSubtitle">Position your document clearly</div>
+            </div>
+            <div class="guide-illustration" id="guideIllustration">
+                <div class="direction-arrow" id="directionArrow"></div>
+                <div class="illustrated-card" id="illustratedCard">
+                    <div class="card-align-text">Align your ID card with this guide</div>
+                    <div class="top-edge-indicator">TOP EDGE</div>
+                    <div class="card-detail-lines">
+                        <div class="card-line short"></div>
+                        <div class="card-line medium"></div>
+                        <div class="card-line long"></div>
+                        <div class="card-line medium"></div>
+                        <div class="card-line short"></div>
+                    </div>
+                    <div class="card-photo-placeholder" id="cardPhotoPlaceholder">FACE</div>
+                </div>
+                <div class="hand-illustration" id="handIllustration">
+                    <div class="hand-chip">Hold from below</div>
+                    <svg class="hand-svg" viewBox="0 0 160 110" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 70 Q30 55 44 56 L112 56 Q128 56 138 70 L146 80 Q152 88 146 94 Q140 100 130 98 L30 98 Q20 98 14 92 Q8 86 14 78 Z" fill="rgba(255,255,255,0.82)"/>
+                        <rect x="24" y="66" width="112" height="10" rx="5" fill="rgba(15,23,42,0.25)"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="guide-box" id="guideBox">
+                <div class="corner corner-tl"></div>
+                <div class="corner corner-tr"></div>
+                <div class="corner corner-bl"></div>
+                <div class="corner corner-br"></div>
+            </div>
+            <div class="camera-instructions" id="instructions">Position your document within the frame</div>
+            <div class="camera-warning-text" id="cameraWarningText">Keep the card steady and fully visible.</div>
+        </div>
+        <button class="capture-btn" id="captureBtn" type="button">Snap</button>
+    </div>
+
+    <div class="preview-container text-center" id="previewContainer">
+        <img id="previewImage" class="preview-image" alt="Captured image">
+        <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
+            <button id="retakeBtn" class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="retakePhoto()" type="button">Retake Photo</button>
+            <button id="confirmBtn" class="btn btn-primary w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500" onclick="confirmPhoto()" type="button">Use This Photo</button>
+        </div>
+    </div>
+
+    <script src="{% static 'js/main.js' %}?v=tilt-check-38" defer></script>
 </body>
 </html>

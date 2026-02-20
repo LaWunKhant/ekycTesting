@@ -16,6 +16,7 @@ urlpatterns = [
     path('verify/submit/', views.verify_kyc, name='verify_kyc'),
     path('verify/start/<uuid:token>/', views.verify_link, name='verify_link'),
     path('customer/start/', views.customer_start, name='customer_start'),
+    path('bug/liveness/', views.bug_liveness_check, name='bug_liveness_check'),
 
     # Session API (Flask parity)
     path('session/start', api_views.start_session, name='start_session'),

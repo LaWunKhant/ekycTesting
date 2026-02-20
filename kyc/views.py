@@ -20,6 +20,7 @@ from datetime import timedelta
 from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from django.utils.text import slugify
+from urllib.parse import urlencode
 
 from .forms import TenantCreateForm, TenantUpdateForm
 from .services.card_physical_check import analyze_card_physicality
@@ -385,6 +386,7 @@ def tenant_dashboard(request, tenant_slug):
         "customer_form": customer_form,
         "latest_link": latest_link,
         "public_base_url": getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/"),
+        "media_url": settings.MEDIA_URL,
         **_impersonation_context(request),
     }
     return render(request, "kyc/tenant_dashboard.html", context)
@@ -485,6 +487,53 @@ def customer_verify(request):
     return render(request, "kyc/index.html", {"tenant_slug": tenant_slug, "customer_id": customer_id})
 
 
+def bug_liveness_check(request):
+    """
+    Temporary debug route for liveness flow.
+    Creates a throwaway customer when customer_id is not provided.
+    """
+    tenant_slug = request.GET.get("tenant_slug") or request.GET.get("tenant")
+    customer_id = request.GET.get("customer_id")
+
+    if tenant_slug:
+        tenant = Tenant.objects.filter(slug=tenant_slug, deleted_at__isnull=True).first()
+    else:
+        tenant = Tenant.objects.filter(is_active=True, deleted_at__isnull=True).order_by("created_at").first()
+
+    if not tenant:
+        return JsonResponse(
+            {"success": False, "error": "No active tenant found. Provide ?tenant_slug=<slug>."},
+            status=400,
+        )
+
+    customer = None
+    if customer_id:
+        customer = Customer.objects.filter(id=customer_id, tenant=tenant).first()
+        if not customer:
+            return JsonResponse(
+                {"success": False, "error": "customer_id not found for the selected tenant."},
+                status=400,
+            )
+    else:
+        stamp = dj_timezone.now().strftime("%Y%m%d%H%M%S")
+        customer = Customer.objects.create(
+            tenant=tenant,
+            full_name=f"Liveness Debug {stamp}",
+            email=None,
+            phone=None,
+        )
+
+    query = {
+        "tenant_slug": tenant.slug,
+        "customer_id": customer.id,
+        "debug": "liveness",
+    }
+    if str(request.GET.get("autostart", "")).lower() in {"1", "true", "yes"}:
+        query["autostart"] = "1"
+
+    return redirect(f"/verify/?{urlencode(query)}")
+
+
 def verify_link(request, token):
     try:
         link = VerificationLink.objects.select_related("tenant", "customer").get(token=token)
@@ -562,6 +611,7 @@ def review_session_detail(request, session_id):
         "customer": session.customer,
         "front_url": _media_url(session.document_front_url or session.front_image),
         "back_url": _media_url(session.document_back_url or session.back_image),
+        "thickness_url": _media_url(session.thickness_card or ((session.tilt_frames or [None])[-1] if session.tilt_frames else None)),
         "selfie_url": _media_url(session.selfie_url or session.selfie_image),
         **_impersonation_context(request),
     }
@@ -830,6 +880,9 @@ def verify_kyc(request):
                         rp = _resolve_media_path(p)
                         if rp and rp not in tilt_paths:
                             tilt_paths.append(rp)
+                    thickness_path = _resolve_media_path(session_for_card.thickness_card)
+                    if thickness_path and thickness_path not in tilt_paths:
+                        tilt_paths.append(thickness_path)
                     if session_for_card.document_type:
                         card_detection = {
                             "document_type": session_for_card.document_type,
