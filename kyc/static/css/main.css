@@ -587,6 +587,24 @@ html, body {
     .step { width:32px; height:32px; font-size:12px; }
 }
 
+/* iPhone SE / narrow phone form control fixes (Safari date/select layout + zoom) */
+@media (max-width: 430px) {
+    #personalScreen .personal-date-input,
+    #personalScreen .personal-gender-select {
+        font-size: 16px !important; /* prevents iOS Safari focus zoom */
+        min-height: 48px;
+        line-height: 1.2;
+    }
+
+    #personalScreen .personal-date-input {
+        padding-right: 10px;
+    }
+
+    input.date-fallback-text {
+        letter-spacing: 0.02em;
+    }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    FULLSCREEN ENFORCEMENT
    ═══════════════════════════════════════════════════════════════════════════ */

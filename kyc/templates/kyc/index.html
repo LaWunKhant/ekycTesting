@@ -1,10 +1,11 @@
-{% load static %}
+{% load i18n static %}
 <!DOCTYPE html>
-<html lang="en">
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoonKYC - Document Verification</title>
+    <title>{% trans "MoonKYC - Document Verification" %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,6 +13,9 @@
     <style>
         body {
             font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+        [data-lang-menu] {
+            transform-origin: top right;
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/main.css' %}?v=main-24">
@@ -35,25 +39,61 @@
         </div>
         <div class="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-10 kyc-shell">
             <div class="rounded-3xl border border-slate-200 bg-white/85 shadow-2xl shadow-slate-200/60 backdrop-blur">
-                <div class="header border-b border-slate-200 px-8 py-6">
+                <div class="header border-b border-slate-200 px-4 py-4 sm:px-8 sm:py-6">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <div class="text-xs uppercase tracking-[0.3em] text-slate-500">MoonEKYC</div>
-                            <h1 class="mt-2 text-2xl font-semibold tracking-tight">Secure Identity Verification</h1>
-                            <p class="mt-1 text-sm text-slate-500">Fast checks with privacy-first safeguards.</p>
+                            <h1 class="mt-2 text-2xl font-semibold tracking-tight">{% trans "Secure Identity Verification" %}</h1>
+                            <p class="mt-1 text-sm text-slate-500">{% trans "Fast checks with privacy-first safeguards." %}</p>
                         </div>
-                        <div class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Powered by MoonEKYC</div>
+                        <div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                            <div class="relative" data-lang-switcher>
+                                <button
+                                    type="button"
+                                    data-lang-toggle
+                                    aria-expanded="false"
+                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
+                                >
+                                    <span aria-hidden="true">🌐</span>
+                                    <span>{% trans "Language" %}</span>
+                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-slate-600">
+                                        {% if LANGUAGE_CODE == 'ja' %}JP{% else %}EN{% endif %}
+                                    </span>
+                                </button>
+
+                                <div
+                                    data-lang-menu
+                                    class="pointer-events-none absolute left-0 z-30 mt-2 w-56 max-w-[calc(100vw-2rem)] translate-y-1 scale-95 rounded-2xl border border-slate-200 bg-white/95 p-2 opacity-0 shadow-xl shadow-slate-900/10 backdrop-blur transition duration-200 sm:left-auto sm:right-0"
+                                >
+                                    <button type="button" data-lang-value="en" class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100">
+                                        <span>English</span>
+                                        {% if LANGUAGE_CODE == 'en' %}<span class="ml-auto text-emerald-600">●</span>{% endif %}
+                                    </button>
+                                    <button type="button" data-lang-value="ja" class="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100">
+                                        <span>日本語</span>
+                                        {% if LANGUAGE_CODE == 'ja' %}<span class="ml-auto text-emerald-600">●</span>{% endif %}
+                                    </button>
+                                </div>
+
+                                <form action="{% url 'set_language' %}" method="post" class="hidden" data-lang-form>
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input type="hidden" name="language" value="{{ LANGUAGE_CODE }}" data-lang-input>
+                                </form>
+                            </div>
+                            <div class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Powered by MoonEKYC</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="content px-8 py-6">
+                <div class="content px-4 py-4 sm:px-8 sm:py-6">
                     <div class="step-indicator mb-8">
                         <div class="step-track">
                             <div class="step-progress" id="stepProgress"></div>
                         </div>
                         <div class="step-meta">
-                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="stepLabel">Step 1 of 13</div>
-                            <div class="text-sm font-semibold text-slate-800" id="stepTitle">Welcome</div>
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="stepLabel">{% blocktrans %}Step 1 of 14{% endblocktrans %}</div>
+                            <div class="text-sm font-semibold text-slate-800" id="stepTitle">{% trans "Welcome" %}</div>
                         </div>
                     </div>
 
@@ -65,154 +105,153 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3.75V7.5H17.25" />
                                 </svg>
                             </div>
-                            <h2 class="text-xl font-semibold">Welcome to identity verification</h2>
-                            <p class="mt-2 text-sm text-slate-600">We will guide you through a short, secure verification flow.</p>
+                            <h2 class="text-xl font-semibold">{% trans "Welcome to identity verification" %}</h2>
+                            <p class="mt-2 text-sm text-slate-600">{% trans "We will guide you through a short, secure verification flow." %}</p>
 
                             <div class="requirements mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
-                                <h3 class="text-sm font-semibold text-slate-700">What you will need</h3>
+                                <h3 class="text-sm font-semibold text-slate-700">{% trans "What you will need" %}</h3>
                                 <ul class="mt-3 space-y-2 text-sm text-slate-600">
                                     <li class="flex items-start gap-3">
                                         <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
-                                        Your ID document
+                                        {% trans "Your ID document" %}
                                     </li>
                                     <li class="flex items-start gap-3">
                                         <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
-                                        Good lighting and a steady camera
+                                        {% trans "Good lighting and a steady camera" %}
                                     </li>
                                     <li class="flex items-start gap-3">
                                         <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
-                                        Camera permission enabled in your browser
+                                        {% trans "Camera permission enabled in your browser" %}
                                     </li>
                                     <li class="flex items-start gap-3">
                                         <span class="mt-2 h-2 w-2 rounded-full bg-emerald-500"></span>
-                                        About three minutes to finish
+                                        {% trans "About three minutes to finish" %}
                                     </li>
                                 </ul>
                             </div>
 
-                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startFlow()">Start Verification</button>
+                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startFlow()">{% trans "Start Verification" %}</button>
                         </div>
                     </div>
 
                     <div class="screen hidden" id="citizenshipScreen" data-screen>
                         <div class="text-center">
-                            <h2 class="text-xl font-semibold">Are you a Japanese or foreign resident?</h2>
-                            <p class="mt-2 text-sm text-slate-600">This helps us show the right document options.</p>
+                            <h2 class="text-xl font-semibold">{% trans "Are you a Japanese or foreign resident?" %}</h2>
+                            <p class="mt-2 text-sm text-slate-600">{% trans "This helps us show the right document options." %}</p>
                             <div class="mt-6 grid gap-3 sm:grid-cols-2">
                                 <button class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50" onclick="selectCitizenship('japanese')">
-                                    Japanese Citizen
+                                    {% trans "Japanese Citizen" %}
                                 </button>
                                 <button class="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-left text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50" onclick="selectCitizenship('foreign')">
-                                    Foreign Resident
+                                    {% trans "Foreign Resident" %}
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div class="screen hidden" id="documentScreen" data-screen>
-                        <h2 class="text-xl font-semibold">Select your document</h2>
-                        <p class="mt-2 text-sm text-slate-600">Only documents relevant to your residency are shown.</p>
+                        <h2 class="text-xl font-semibold">{% trans "Select your document" %}</h2>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "Only documents relevant to your residency are shown." %}</p>
                         <div class="mt-6 grid gap-3 sm:grid-cols-2" id="documentOptions"></div>
                     </div>
 
                     <div class="screen hidden" id="guideScreen" data-screen>
                         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Document Guide</div>
-                            <h2 class="mt-2 text-xl font-semibold" id="guideTitle">Prepare your document</h2>
-                            <p class="mt-2 text-sm text-slate-600" id="guideBody">Please prepare your document before continuing.</p>
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">{% trans "Document Guide" %}</div>
+                            <h2 class="mt-2 text-xl font-semibold" id="guideTitle">{% trans "Prepare your document" %}</h2>
+                            <p class="mt-2 text-sm text-slate-600" id="guideBody">{% trans "Please prepare your document before continuing." %}</p>
                         </div>
-                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="goToPersonalInfo()">Continue</button>
+                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="goToPersonalInfo()">{% trans "Continue" %}</button>
                     </div>
 
                     <div class="screen hidden" id="personalScreen" data-screen>
-                        <h2 class="text-xl font-semibold">Personal information</h2>
-                        <p class="mt-2 text-sm text-slate-600">Enter your legal name and identity details.</p>
+                        <h2 class="text-xl font-semibold">{% trans "Personal information" %}</h2>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "Enter your legal name and identity details." %}</p>
                         <form class="mt-6 grid gap-4" id="personalForm">
                             <div>
-                                <label class="text-xs font-semibold text-slate-600">Full name</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "Full name" %}</label>
                                 <input id="fullName" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" required>
                             </div>
                             <div id="kanaField" class="hidden">
-                                <label class="text-xs font-semibold text-slate-600">Full name (Kana)</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "Full name (Kana)" %}</label>
                                 <input id="fullNameKana" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                             </div>
-                            <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Date of birth</label>
-                                    <input id="dateOfBirth" type="date" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "Date of birth" %}</label>
+                                    <input id="dateOfBirth" type="date" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm personal-date-input">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Gender</label>
-                                    <select id="gender" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
-                                        <option value="">Select</option>
-                                        <option value="female">Female</option>
-                                        <option value="male">Male</option>
-                                        <option value="other">Other</option>
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "Gender" %}</label>
+                                    <select id="gender" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm personal-gender-select">
+                                        <option value="">{% trans "Select" %}</option>
+                                        <option value="male">{% trans "Male" %}</option>
+                                        <option value="female">{% trans "Female" %}</option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-600">Nationality</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "Nationality" %}</label>
                                 <input id="nationality" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                             </div>
                             <div id="documentSpecificFields" class="grid gap-4"></div>
-                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="savePersonalInfo()">Continue</button>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="savePersonalInfo()">{% trans "Continue" %}</button>
                         </form>
                     </div>
 
                     <div class="screen hidden" id="addressScreen" data-screen>
-                        <h2 class="text-xl font-semibold">Address information</h2>
-                        <p class="mt-2 text-sm text-slate-600">Share your current address.</p>
+                        <h2 class="text-xl font-semibold">{% trans "Address information" %}</h2>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "Share your current address." %}</p>
                         <form class="mt-6 grid gap-4" id="addressForm">
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Postal code</label>
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "Postal code" %}</label>
                                     <input id="postalCode" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Prefecture</label>
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "Prefecture" %}</label>
                                     <input id="prefecture" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                                 </div>
                             </div>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">City</label>
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "City" %}</label>
                                     <input id="city" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                                 </div>
                                 <div>
-                                    <label class="text-xs font-semibold text-slate-600">Street address</label>
+                                    <label class="text-xs font-semibold text-slate-600">{% trans "Street address" %}</label>
                                     <input id="streetAddress" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveAddressInfo()">Continue</button>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveAddressInfo()">{% trans "Continue" %}</button>
                         </form>
                     </div>
 
                     <div class="screen hidden" id="contactScreen" data-screen>
-                        <h2 class="text-xl font-semibold">Contact information</h2>
-                        <p class="mt-2 text-sm text-slate-600">We will send a confirmation once submitted.</p>
+                        <h2 class="text-xl font-semibold">{% trans "Contact information" %}</h2>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "We will send a confirmation once submitted." %}</p>
                         <form class="mt-6 grid gap-4" id="contactForm">
                             <div>
-                                <label class="text-xs font-semibold text-slate-600">Email</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "Email" %}</label>
                                 <input id="email" type="email" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-600">Phone</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "Phone" %}</label>
                                 <input id="phone" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-600">External reference (optional)</label>
+                                <label class="text-xs font-semibold text-slate-600">{% trans "External reference (optional)" %}</label>
                                 <input id="externalRef" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
                             </div>
-                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveContactInfo()">Continue</button>
+                            <button type="button" class="btn btn-primary mt-2 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="saveContactInfo()">{% trans "Continue" %}</button>
                         </form>
                     </div>
 
                     <div class="screen hidden" id="captureScreen" data-screen>
                         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="captureLabel">Document capture</div>
-                            <h2 class="mt-2 text-xl font-semibold" id="captureTitle">Capture the front of your document</h2>
-                            <p class="mt-1 text-sm text-slate-600" id="captureSubtitle">Make sure all details are clear and readable.</p>
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500" id="captureLabel">{% trans "Document capture" %}</div>
+                            <h2 class="mt-2 text-xl font-semibold" id="captureTitle">{% trans "Capture the front of your document" %}</h2>
+                            <p class="mt-1 text-sm text-slate-600" id="captureSubtitle">{% trans "Make sure all details are clear and readable." %}</p>
                         </div>
                     </div>
 
@@ -225,18 +264,18 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m18.75 7.5 2.25 2.25-2.25 2.25" />
                                 </svg>
                             </div>
-                            <h2 class="text-xl font-semibold">Card thickness check</h2>
+                            <h2 class="text-xl font-semibold">{% trans "Card thickness check" %}</h2>
                             <p class="mt-2 text-sm text-slate-600">
-                                Before liveness, hold your ID card at a slight angle so the edge is visible.
+                                {% trans "Before liveness, hold your ID card at a slight angle so the edge is visible." %}
                             </p>
 
                             <div class="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-5 text-left">
                                 <div class="tilt-guide-card mx-auto mb-4"></div>
                                 <ol class="list-decimal space-y-2 pl-5 text-sm text-cyan-900">
-                                    <li>Hold the real ID card in your hand (not screen/photo).</li>
-                                    <li>Take one thickness photo only.</li>
-                                    <li>Tilt backward so the TOP edge is visible.</li>
-                                    <li>Keep the card steady and centered, then tap Snap.</li>
+                                    <li>{% trans "Hold the real ID card in your hand (not screen/photo)." %}</li>
+                                    <li>{% trans "Take one thickness photo only." %}</li>
+                                    <li>{% trans "Tilt backward so the TOP edge is visible." %}</li>
+                                    <li>{% trans "Keep the card steady and centered, then tap Snap." %}</li>
                                 </ol>
                             </div>
 
@@ -244,7 +283,7 @@
                                 class="btn btn-primary mt-6 w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500"
                                 onclick="startTiltCapture()"
                             >
-                                Start Tilt Check
+                                {% trans "Start Tilt Check" %}
                             </button>
                         </div>
                     </div>
@@ -257,48 +296,48 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm4.5 0a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zM9 14.25c.75.75 1.75 1.125 3 1.125s2.25-.375 3-1.125" />
                                 </svg>
                             </div>
-                            <h2 class="text-xl font-semibold">Selfie and liveness check</h2>
-                            <p class="mt-2 text-sm text-slate-600">We will confirm you are present before capturing your selfie.</p>
+                            <h2 class="text-xl font-semibold">{% trans "Selfie and liveness check" %}</h2>
+                            <p class="mt-2 text-sm text-slate-600">{% trans "We will confirm you are present before capturing your selfie." %}</p>
 
                             <div class="liveness-instructions mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-left">
-                                <h3 class="text-sm font-semibold text-emerald-800">What you will do</h3>
+                                <h3 class="text-sm font-semibold text-emerald-800">{% trans "What you will do" %}</h3>
                                 <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-emerald-900">
-                                    <li>Look at the center of your screen</li>
-                                    <li>Turn your head left</li>
-                                    <li>Turn your head right</li>
-                                    <li>Open your mouth wide</li>
+                                    <li>{% trans "Look at the center of your screen" %}</li>
+                                    <li>{% trans "Turn your head left" %}</li>
+                                    <li>{% trans "Turn your head right" %}</li>
+                                    <li>{% trans "Open your mouth wide" %}</li>
                                 </ol>
 
                                 <div class="liveness-note mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                                    Liveness opens automatically in fullscreen. If blocked, tap the retry button below.
+                                    {% trans "Liveness opens automatically in fullscreen. If blocked, tap the retry button below." %}
                                 </div>
                             </div>
 
                             <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
-                                <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="skipLiveness()">Skip liveness</button>
-                                <button class="btn btn-primary w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/60 hover:bg-emerald-500" onclick="startLivenessDetection()">Retry / Start Liveness</button>
+                                <button class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="skipLiveness()">{% trans "Skip liveness" %}</button>
+                                <button class="btn btn-primary w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/60 hover:bg-emerald-500" onclick="startLivenessDetection()">{% trans "Retry / Start Liveness" %}</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="screen hidden" id="reviewScreen" data-screen>
-                        <h2 class="text-xl font-semibold">Review and confirm</h2>
-                        <p class="mt-2 text-sm text-slate-600">Please confirm your details before submission.</p>
+                        <h2 class="text-xl font-semibold">{% trans "Review and confirm" %}</h2>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "Please confirm your details before submission." %}</p>
                         <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" id="reviewSummary"></div>
-                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="submitFlow()">Submit Verification</button>
+                        <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="submitFlow()">{% trans "Submit Verification" %}</button>
                     </div>
 
                     <div class="screen hidden" id="submitScreen" data-screen>
                         <div class="text-center">
-                            <div class="text-sm font-semibold text-slate-700">Submitting your verification...</div>
+                            <div class="text-sm font-semibold text-slate-700">{% trans "Submitting your verification..." %}</div>
                             <div class="spinner mt-6"></div>
                         </div>
                     </div>
 
                     <div class="screen hidden" id="processingScreen" data-screen>
                         <div class="text-center">
-                            <div class="text-sm font-semibold text-slate-700">Processing your verification...</div>
-                            <p class="mt-2 text-sm text-slate-500">This may take a few moments.</p>
+                            <div class="text-sm font-semibold text-slate-700">{% trans "Processing your verification..." %}</div>
+                            <p class="mt-2 text-sm text-slate-500">{% trans "This may take a few moments." %}</p>
                             <div class="spinner mt-6"></div>
                         </div>
                     </div>
@@ -306,10 +345,10 @@
                     <div class="screen hidden" id="completionScreen" data-screen>
                         <div class="text-center">
                             <div class="result-icon mx-auto mb-4" id="resultIcon">OK</div>
-                            <h2 class="text-xl font-semibold" id="resultTitle">Submission received</h2>
-                            <p class="mt-2 text-sm text-slate-600" id="resultMessage">Our team will review your verification and get back to you.</p>
+                            <h2 class="text-xl font-semibold" id="resultTitle">{% trans "Submission received" %}</h2>
+                            <p class="mt-2 text-sm text-slate-600" id="resultMessage">{% trans "Our team will review your verification and get back to you." %}</p>
                             <div id="resultDetails"></div>
-                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startOver()">Start New Verification</button>
+                            <button class="btn btn-primary mt-6 w-full rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300/60 hover:bg-slate-800" onclick="startOver()">{% trans "Start New Verification" %}</button>
                         </div>
                     </div>
 
@@ -324,15 +363,15 @@
         <canvas id="canvas"></canvas>
         <div class="camera-overlay">
             <div class="camera-header-overlay">
-                <div class="camera-mode-label" id="cameraModeLabel">Document mode</div>
-                <div class="camera-live-title" id="cameraLiveTitle">Capture document</div>
-                <div class="camera-live-subtitle" id="cameraLiveSubtitle">Position your document clearly</div>
+                <div class="camera-mode-label" id="cameraModeLabel">{% trans "Document mode" %}</div>
+                <div class="camera-live-title" id="cameraLiveTitle">{% trans "Capture document" %}</div>
+                <div class="camera-live-subtitle" id="cameraLiveSubtitle">{% trans "Position your document clearly" %}</div>
             </div>
             <div class="guide-illustration" id="guideIllustration">
                 <div class="direction-arrow" id="directionArrow"></div>
                 <div class="illustrated-card" id="illustratedCard">
-                    <div class="card-align-text">Align your ID card with this guide</div>
-                    <div class="top-edge-indicator">TOP EDGE</div>
+                    <div class="card-align-text">{% trans "Align your ID card with this guide" %}</div>
+                    <div class="top-edge-indicator">{% trans "TOP EDGE" %}</div>
                     <div class="card-detail-lines">
                         <div class="card-line short"></div>
                         <div class="card-line medium"></div>
@@ -340,10 +379,10 @@
                         <div class="card-line medium"></div>
                         <div class="card-line short"></div>
                     </div>
-                    <div class="card-photo-placeholder" id="cardPhotoPlaceholder">FACE</div>
+                    <div class="card-photo-placeholder" id="cardPhotoPlaceholder">{% trans "FACE" %}</div>
                 </div>
                 <div class="hand-illustration" id="handIllustration">
-                    <div class="hand-chip">Hold from below</div>
+                    <div class="hand-chip">{% trans "Hold from below" %}</div>
                     <svg class="hand-svg" viewBox="0 0 160 110" xmlns="http://www.w3.org/2000/svg">
                         <path d="M20 70 Q30 55 44 56 L112 56 Q128 56 138 70 L146 80 Q152 88 146 94 Q140 100 130 98 L30 98 Q20 98 14 92 Q8 86 14 78 Z" fill="rgba(255,255,255,0.82)"/>
                         <rect x="24" y="66" width="112" height="10" rx="5" fill="rgba(15,23,42,0.25)"/>
@@ -356,20 +395,225 @@
                 <div class="corner corner-bl"></div>
                 <div class="corner corner-br"></div>
             </div>
-            <div class="camera-instructions" id="instructions">Position your document within the frame</div>
-            <div class="camera-warning-text" id="cameraWarningText">Keep the card steady and fully visible.</div>
+            <div class="camera-instructions" id="instructions">{% trans "Position your document within the frame" %}</div>
+            <div class="camera-warning-text" id="cameraWarningText">{% trans "Keep the card steady and fully visible." %}</div>
         </div>
-        <button class="capture-btn" id="captureBtn" type="button">Snap</button>
+        <button class="capture-btn" id="captureBtn" type="button">{% trans "Snap" %}</button>
     </div>
 
     <div class="preview-container text-center" id="previewContainer">
         <img id="previewImage" class="preview-image" alt="Captured image">
         <div class="button-group mt-6 flex flex-col gap-3 sm:flex-row">
-            <button id="retakeBtn" class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="retakePhoto()" type="button">Retake Photo</button>
-            <button id="confirmBtn" class="btn btn-primary w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500" onclick="confirmPhoto()" type="button">Use This Photo</button>
+            <button id="retakeBtn" class="btn btn-secondary w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" onclick="retakePhoto()" type="button">{% trans "Retake Photo" %}</button>
+            <button id="confirmBtn" class="btn btn-primary w-full rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-300/60 hover:bg-cyan-500" onclick="confirmPhoto()" type="button">{% trans "Use This Photo" %}</button>
         </div>
     </div>
 
-    <script src="{% static 'js/main.js' %}?v=tilt-check-38" defer></script>
+    <script>
+        (function () {
+            function setupLanguageMenus() {
+                document.querySelectorAll('[data-lang-switcher]').forEach((switcher) => {
+                    const toggle = switcher.querySelector('[data-lang-toggle]');
+                    const menu = switcher.querySelector('[data-lang-menu]');
+                    const form = switcher.querySelector('[data-lang-form]');
+                    const input = switcher.querySelector('[data-lang-input]');
+                    if (!toggle || !menu || !form || !input) return;
+
+                    let open = false;
+                    const setOpen = (next) => {
+                        open = !!next;
+                        toggle.setAttribute('aria-expanded', String(open));
+                        menu.classList.toggle('pointer-events-none', !open);
+                        menu.classList.toggle('opacity-0', !open);
+                        menu.classList.toggle('scale-95', !open);
+                        menu.classList.toggle('translate-y-1', !open);
+                    };
+
+                    setOpen(false);
+                    toggle.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        setOpen(!open);
+                    });
+
+                    switcher.querySelectorAll('[data-lang-value]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            if (window.saveKycFlowForLanguageSwitch) {
+                                window.saveKycFlowForLanguageSwitch();
+                            }
+                            input.value = btn.getAttribute('data-lang-value');
+                            form.submit();
+                        });
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (!switcher.contains(e.target)) setOpen(false);
+                    });
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') setOpen(false);
+                    });
+                });
+            }
+            setupLanguageMenus();
+        })();
+
+        window.KYC_I18N = {
+            labels: {
+                step: "{% trans 'Step' %}",
+                of: "{% trans 'of' %}"
+            },
+            documents: {
+                driver_license: "{% trans 'Driver License' %}",
+                my_number: "{% trans 'My Number Card' %}",
+                passport: "{% trans 'Passport' %}",
+                residence_card: "{% trans 'Residence Card' %}"
+            },
+            documentGuides: {
+                driver_license: "{% trans 'Please prepare your driver license (front and back).' %}",
+                my_number: "{% trans 'Please prepare your My Number card (front and back).' %}",
+                passport: "{% trans 'Please prepare your passport photo page.' %}",
+                residence_card: "{% trans 'Please prepare your residence card (front and back).' %}"
+            },
+            fieldLabels: {
+                license_number: "{% trans 'License number' %}",
+                issue_date: "{% trans 'Issue date' %}",
+                expiry_date: "{% trans 'Expiry date' %}",
+                my_number: "{% trans 'My Number' %}",
+                passport_number: "{% trans 'Passport number' %}",
+                passport_expiry: "{% trans 'Passport expiry' %}",
+                residence_status: "{% trans 'Residence status' %}",
+                residence_card_number: "{% trans 'Residence card number' %}",
+                residence_card_expiry: "{% trans 'Residence card expiry' %}"
+            },
+            captureText: {
+                tiltStepTitle: "{% trans 'Thickness check: Top edge visible' %}",
+                tiltInstructionTop: "{% trans 'Tilt card backward — show TOP edge' %}",
+                tiltHintTop: "{% trans 'Hold the card and tilt the top edge away from you so the thickness is visible.' %}",
+                cameraMode: "{% trans 'Camera Mode1' %}",
+                tiltLiveTitle: "{% trans 'Tilt' %}",
+                tiltLiveSubtitle: "{% trans 'Thickness at the top of the card.' %}",
+                tiltWarn: "{% trans 'Align your card with the guide and show top edge.' %}",
+                tiltInstructionTopLower: "{% trans 'Tilt backward — show top edge.' %}",
+                selfieTitle: "{% trans 'Capture your selfie' %}",
+                selfieSubtitle: "{% trans 'Make sure your face is centered and clear.' %}",
+                selfieInstruction: "{% trans 'Position your face within the frame' %}",
+                selfieModeLabel: "{% trans 'Selfie mode' %}",
+                selfieLiveTitle: "{% trans 'Capture selfie' %}",
+                selfieLiveSubtitle: "{% trans 'Center your face and hold still.' %}",
+                selfieWarn: "{% trans 'Use good lighting and avoid blur.' %}",
+                docBackTitle: "{% trans 'Capture the back of your document' %}",
+                docFrontTitle: "{% trans 'Capture the front of your document' %}",
+                docBackSubtitle: "{% trans 'Make sure the back side is clear and readable.' %}",
+                docFrontSubtitle: "{% trans 'Make sure all details are clear and readable.' %}",
+                docBackInstruction: "{% trans 'Position the back within the frame' %}",
+                docFrontInstruction: "{% trans 'Position the front within the frame' %}",
+                documentModeLabel: "{% trans 'Document mode' %}",
+                docBackLiveTitle: "{% trans 'Capture back side' %}",
+                docFrontLiveTitle: "{% trans 'Capture front side' %}",
+                docBackLiveSubtitle: "{% trans 'Place the back of your ID clearly.' %}",
+                docFrontLiveSubtitle: "{% trans 'Place the front of your ID clearly.' %}",
+                docWarn: "{% trans 'Avoid glare and keep all corners visible.' %}",
+                holdCardCenterTilt: "{% trans 'Hold card clearly in the center, then tilt as instructed.' %}",
+                angleLooksGoodTapSnap: "{% trans 'Angle looks good. Tap Snap.' %}",
+                goodAngleDetectedTapSnap: "{% trans 'Good angle detected. Tap Snap now.' %}"
+            },
+            statusText: {
+                missingSessionRestart: "{% trans 'Missing session. Please restart verification.' %}",
+                uploadingImage: "{% trans 'Uploading image...' %}",
+                captureFailed: "{% trans 'Capture failed.' %}",
+                tiltCapturedPrefix: "{% trans 'Tilt' %}",
+                capturedSuffix: "{% trans 'captured.' %}",
+                uploadFailedPrefix: "{% trans 'Upload failed:' %}",
+                tiltCheckRequiredPrefix: "{% trans 'Tilt check required. Please capture' %}",
+                tiltPhotosFirstSuffix: "{% trans 'tilt photos first.' %}",
+                popupBlocked: "{% trans 'Popup blocked. Allow popups for this site and try again.' %}",
+                startingLiveness: "{% trans 'Starting liveness detection...' %}",
+                livenessVerifiedConfidence: "{% trans 'Liveness verified. Confidence:' %}",
+                livenessVerificationFailed: "{% trans 'Liveness verification failed. Please try again.' %}",
+                failedSaveLiveness: "{% trans 'Failed to save liveness result.' %}",
+                returnToVerificationTab: "{% trans 'Return to this verification tab to continue selfie capture.' %}",
+                submissionFailed: "{% trans 'Submission failed.' %}",
+                submissionFailedPrefix: "{% trans 'Submission failed:' %}",
+                failedStartSession: "{% trans 'Failed to start session.' %}",
+                sessionStartFailedPrefix: "{% trans 'Session start failed:' %}",
+                fullNameRequired: "{% trans 'Full name is required.' %}"
+            },
+            reviewText: {
+                citizenship: "{% trans 'Citizenship' %}",
+                citizenshipJapanese: "{% trans 'Japanese' %}",
+                citizenshipForeign: "{% trans 'Foreign' %}",
+                document: "{% trans 'Document' %}",
+                fullName: "{% trans 'Full name' %}",
+                dateOfBirth: "{% trans 'Date of birth' %}",
+                nationality: "{% trans 'Nationality' %}",
+                address: "{% trans 'Address' %}",
+                contact: "{% trans 'Contact' %}",
+                documentImages: "{% trans 'Document images' %}",
+                front: "{% trans 'Front' %}",
+                back: "{% trans 'Back' %}",
+                tiltFrames: "{% trans 'Tilt frames' %}",
+                selfie: "{% trans 'Selfie' %}",
+                captured: "{% trans 'Captured' %}",
+                pending: "{% trans 'Pending' %}",
+                liveness: "{% trans 'Liveness' %}",
+                completed: "{% trans 'Completed' %}",
+                skipped: "{% trans 'Skipped' %}"
+            },
+            completionText: {
+                submissionReceived: "{% trans 'Submission received' %}",
+                submittedReviewSoon: "{% trans 'Your verification is submitted. Our team will review it soon.' %}",
+                aiCheck: "{% trans 'AI check' %}",
+                verified: "{% trans 'Verified' %}",
+                needsReview: "{% trans 'Needs review' %}",
+                confidence: "{% trans 'Confidence' %}",
+                liveness: "{% trans 'Liveness' %}",
+                completed: "{% trans 'Completed' %}",
+                skipped: "{% trans 'Skipped' %}",
+                detectedCard: "{% trans 'Detected card' %}",
+                cardPhysicalCheck: "{% trans 'Card physical check' %}",
+                passed: "{% trans 'Passed' %}",
+                physicalScore: "{% trans 'Physical score' %}",
+                na: "{% trans 'N/A' %}",
+                review: "{% trans 'Review' %}",
+                receivedManualReview: "{% trans 'We received your verification. Our team will review it manually.' %}"
+            },
+            cameraText: {
+                cameraFailedStart: "{% trans 'Camera failed to start:' %}",
+                cameraAccessFailed: "{% trans 'Camera access failed.' %}",
+                cameraNeedsHttps: "{% trans 'Camera requires a secure page (HTTPS).' %}",
+                cameraBlockedSession: "{% trans 'Camera is blocked by the current tab/session. Close other camera screens and try again.' %}",
+                cameraPermissionDenied: "{% trans 'Camera permission denied. Please allow camera access in your browser settings.' %}",
+                noCameraFound: "{% trans 'No camera found on your device.' %}",
+                cameraInUse: "{% trans 'Camera is already in use by another application.' %}",
+                cameraConstraintsUnsupported: "{% trans 'Camera constraints are not supported on this device. Please try again.' %}",
+                cameraErrorPrefix: "{% trans 'Camera error:' %}",
+                unknownError: "{% trans 'Unknown error.' %}"
+            },
+            miscText: {
+                confirmSkipLiveness: "{% trans 'Skipping liveness detection may reduce security. Continue anyway?' %}",
+                debugNeedsTenantCustomer: "{% trans 'Debug liveness mode requires tenant_slug and customer_id.' %}",
+                startingTempLivenessDebug: "{% trans 'Starting temporary liveness debug mode...' %}"
+            },
+            inputText: {
+                datePlaceholder: "{% trans 'YYYY-MM-DD' %}"
+            },
+            steps: {
+                welcome: "{% trans 'Welcome' %}",
+                citizenship: "{% trans 'Residency' %}",
+                document: "{% trans 'Document Selection' %}",
+                guide: "{% trans 'Document Guide' %}",
+                personal: "{% trans 'Personal Info' %}",
+                address: "{% trans 'Address' %}",
+                contact: "{% trans 'Contact' %}",
+                capture: "{% trans 'Document Capture' %}",
+                tilt: "{% trans 'Card Thickness Check' %}",
+                liveness: "{% trans 'Selfie and Liveness' %}",
+                review: "{% trans 'Review' %}",
+                submit: "{% trans 'Submit' %}",
+                processing: "{% trans 'Processing' %}",
+                complete: "{% trans 'Complete' %}"
+            }
+        };
+    </script>
+    <script src="{% static 'js/main.js' %}?v=tilt-check-40" defer></script>
 </body>
 </html>

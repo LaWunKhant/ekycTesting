@@ -7,6 +7,7 @@ from accounts.views import home_redirect
 from kyc import views as kyc_views
 
 urlpatterns = [
+    path("i18n/", include("django.conf.urls.i18n")),
     path("", home_redirect, name="home"),
     path("admin/dashboard/", kyc_views.platform_dashboard, name="platform_dashboard"),
     path("admin/tenants/<uuid:tenant_id>/", kyc_views.admin_tenant_detail, name="admin_tenant_detail"),

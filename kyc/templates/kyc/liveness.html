@@ -1,10 +1,11 @@
-{% load static %}
+{% load i18n static %}
 <!DOCTYPE html>
-<html lang="en">
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liveness Detection - eKYC</title>
+    <title>{% trans "Liveness Detection - eKYC" %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,6 +20,9 @@
                         radial-gradient(900px circle at 90% 20%, rgba(20, 184, 166, 0.25), transparent 50%),
                         linear-gradient(135deg, #072a2a 0%, #0f766e 45%, #0ea5a4 100%) !important;
             min-height: 100vh;
+        }
+        [data-lang-menu] {
+            transform-origin: top right;
         }
     </style>
     <link rel="stylesheet" href="{% static 'css/liveness.css' %}?v=20260219-3">
@@ -40,13 +44,47 @@
                 <div class="header liveness-header bg-gradient-to-r from-teal-700 via-teal-700 to-emerald-600 px-4 py-5 text-white rounded-t-3xl sm:px-8 sm:py-7">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <div class="text-xs uppercase tracking-[0.3em] text-white/80">Step 5 of 5</div>
-                            <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">Liveness Check</h1>
-                            <p class="mt-2 text-sm text-white/90">Verify you are present</p>
-                            <p class="mt-1 text-xs text-white/70">Quick movement prompts confirm a live face.</p>
+                            <div class="text-xs uppercase tracking-[0.3em] text-white/80">{% trans "Step 5 of 5" %}</div>
+                            <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{% trans "Liveness Check" %}</h1>
+                            <p class="mt-2 text-sm text-white/90">{% trans "Verify you are present" %}</p>
+                            <p class="mt-1 text-xs text-white/70">{% trans "Quick movement prompts confirm a live face." %}</p>
                         </div>
-                        <div class="rounded-full border border-white/40 bg-white/20 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm">
-                            🔒 Secure Session
+                        <div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+                            <div class="relative" data-lang-switcher>
+                                <button
+                                    type="button"
+                                    data-lang-toggle
+                                    aria-expanded="false"
+                                    class="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+                                >
+                                    <span aria-hidden="true">🌐</span>
+                                    <span>{% trans "Language" %}</span>
+                                    <span class="rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em]">
+                                        {% if LANGUAGE_CODE == 'ja' %}JP{% else %}EN{% endif %}
+                                    </span>
+                                </button>
+                                <div
+                                    data-lang-menu
+                                    class="pointer-events-none absolute left-0 z-30 mt-2 w-56 max-w-[calc(100vw-2rem)] translate-y-1 scale-95 rounded-2xl border border-white/20 bg-teal-950/90 p-2 opacity-0 shadow-xl shadow-slate-900/40 backdrop-blur transition duration-200 sm:left-auto sm:right-0"
+                                >
+                                    <button type="button" data-lang-value="en" class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-white/10">
+                                        <span>English</span>
+                                        {% if LANGUAGE_CODE == 'en' %}<span class="ml-auto text-emerald-300">●</span>{% endif %}
+                                    </button>
+                                    <button type="button" data-lang-value="ja" class="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-white/10">
+                                        <span>日本語</span>
+                                        {% if LANGUAGE_CODE == 'ja' %}<span class="ml-auto text-emerald-300">●</span>{% endif %}
+                                    </button>
+                                </div>
+                                <form action="{% url 'set_language' %}" method="post" class="hidden" data-lang-form>
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <input type="hidden" name="language" value="{{ LANGUAGE_CODE }}" data-lang-input>
+                                </form>
+                            </div>
+                            <div class="rounded-full border border-white/40 bg-white/20 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm">
+                                {% trans "Secure Session" %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -56,9 +94,9 @@
                     <!-- Loading Screen -->
                     <div id="loadingScreen" class="loading">
                         <div class="spinner"></div>
-                        <p class="text-base font-semibold text-slate-800">Loading AI models...</p>
-                        <p class="mt-2 text-sm text-slate-600">This may take 10-30 seconds on first load.</p>
-                        <p class="mt-1 text-xs text-slate-500">Please wait while we initialize the face detection system.</p>
+                        <p class="text-base font-semibold text-slate-800">{% trans "Loading AI models..." %}</p>
+                        <p class="mt-2 text-sm text-slate-600">{% trans "This may take 10-30 seconds on first load." %}</p>
+                        <p class="mt-1 text-xs text-slate-500">{% trans "Please wait while we initialize the face detection system." %}</p>
                     </div>
 
                     <!-- Main Screen -->
@@ -71,18 +109,18 @@
                                     <video id="video" autoplay playsinline muted></video>
                                     <div class="overlay">
                                         <div class="face-guide"></div>
-                                        <div class="instruction-box" id="instruction">Position your face in the oval</div>
+                                        <div class="instruction-box" id="instruction">{% trans "Position your face in the oval" %}</div>
                                     </div>
                                 </div>
 
                                 <!-- Tips -->
                                 <div class="hidden rounded-xl bg-teal-50 border border-teal-200 p-4 sm:block liveness-tips">
-                                    <h3 class="text-sm font-semibold text-teal-900 mb-2">💡 Tips for best results</h3>
+                                    <h3 class="text-sm font-semibold text-teal-900 mb-2">{% trans "Tips for best results" %}</h3>
                                     <ul class="text-xs text-teal-800 space-y-1">
-                                        <li>• Ensure good lighting on your face</li>
-                                        <li>• Remove sunglasses or face coverings</li>
-                                        <li>• Keep your face centered in the oval</li>
-                                        <li>• Follow the prompts slowly and clearly</li>
+                                        <li>• {% trans "Ensure good lighting on your face" %}</li>
+                                        <li>• {% trans "Remove sunglasses or face coverings" %}</li>
+                                        <li>• {% trans "Keep your face centered in the oval" %}</li>
+                                        <li>• {% trans "Follow the prompts slowly and clearly" %}</li>
                                     </ul>
                                 </div>
                             </div>
@@ -91,35 +129,35 @@
                             <div class="space-y-5 liveness-sidebar">
                                 <!-- Challenge List -->
                                 <div class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm challenge-panel">
-                                    <h2 class="text-base font-bold text-slate-800 mb-1">Live prompts</h2>
-                                    <p class="text-xs text-slate-600 mb-4">Complete all steps to verify</p>
+                                    <h2 class="text-base font-bold text-slate-800 mb-1">{% trans "Live prompts" %}</h2>
+                                    <p class="text-xs text-slate-600 mb-4">{% trans "Complete all steps to verify" %}</p>
 
                                     <div class="challenge-list space-y-3">
                                         <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-center">
                                             <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">1</span>
-                                            <span class="font-medium">Face detected</span>
+                                            <span class="font-medium">{% trans "Face detected" %}</span>
                                         </div>
 
                                         <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-left">
                                             <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">2</span>
-                                            <span class="font-medium">Turn head left</span>
+                                            <span class="font-medium">{% trans "Turn head left" %}</span>
                                         </div>
 
                                         <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-right">
                                             <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">3</span>
-                                            <span class="font-medium">Turn head right</span>
+                                            <span class="font-medium">{% trans "Turn head right" %}</span>
                                         </div>
 
                                         <div class="challenge-item flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-all" id="challenge-mouth">
                                             <span class="challenge-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold text-sm">4</span>
-                                            <span class="font-medium">Open mouth wide</span>
+                                            <span class="font-medium">{% trans "Open mouth wide" %}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Status Message -->
                                 <div id="statusMessage" class="status-message info">
-                                    Follow the instructions to complete verification
+                                    {% trans "Follow the instructions to complete verification" %}
                                 </div>
 
                                 <!-- Start Button -->
@@ -127,7 +165,7 @@
                                     id="startBtn"
                                     class="btn btn-primary w-full rounded-xl bg-teal-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-teal-500/40 hover:bg-teal-700 transition-all"
                                     onclick="startDetection()">
-                                    Start Liveness Check
+                                    {% trans "Start Liveness Check" %}
                                 </button>
 
                                 <!-- Debug Info (hidden by default) -->
@@ -140,13 +178,91 @@
                 <!-- Footer (optional) -->
                 <div class="px-8 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-3xl page-footer">
                     <p class="text-xs text-slate-600 text-center">
-                        Your privacy is protected. Face data is processed locally and not stored.
+                        {% trans "Your privacy is protected. Face data is processed locally and not stored." %}
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="{% static 'js/liveness.js' %}?v=20260219-1"></script>
+    <script>
+        (function () {
+            function setupLanguageMenus() {
+                document.querySelectorAll('[data-lang-switcher]').forEach((switcher) => {
+                    const toggle = switcher.querySelector('[data-lang-toggle]');
+                    const menu = switcher.querySelector('[data-lang-menu]');
+                    const form = switcher.querySelector('[data-lang-form]');
+                    const input = switcher.querySelector('[data-lang-input]');
+                    if (!toggle || !menu || !form || !input) return;
+
+                    let open = false;
+                    const setOpen = (next) => {
+                        open = !!next;
+                        toggle.setAttribute('aria-expanded', String(open));
+                        menu.classList.toggle('pointer-events-none', !open);
+                        menu.classList.toggle('opacity-0', !open);
+                        menu.classList.toggle('scale-95', !open);
+                        menu.classList.toggle('translate-y-1', !open);
+                    };
+
+                    setOpen(false);
+                    toggle.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        setOpen(!open);
+                    });
+
+                    switcher.querySelectorAll('[data-lang-value]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            input.value = btn.getAttribute('data-lang-value');
+                            form.submit();
+                        });
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (!switcher.contains(e.target)) setOpen(false);
+                    });
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') setOpen(false);
+                    });
+                });
+            }
+            setupLanguageMenus();
+        })();
+
+        window.LIVENESS_I18N = {
+            instructions: {
+                center: "{% trans 'Look at the center' %}",
+                left: "{% trans 'Turn your head LEFT' %}",
+                right: "{% trans 'Turn your head RIGHT' %}",
+                mouth: "{% trans 'Open your MOUTH WIDE!' %}"
+            },
+            status: {
+                ready: "{% trans 'Ready! Click \"Start Liveness Check\" to begin' %}",
+                starting: "{% trans 'Starting liveness detection...' %}",
+                startAgain: "{% trans 'Start Again' %}",
+                cameraAccessFailed: "{% trans 'Camera access failed.' %}",
+                cameraNeedsHttps: "{% trans 'Camera requires HTTPS (or localhost).' %}",
+                cameraBusyTab: "{% trans 'Camera is busy in another tab/window. Please close other camera pages and retry.' %}",
+                cameraPermissionDenied: "{% trans 'Camera permission denied. Please allow camera access in browser settings.' %}",
+                cameraInUse: "{% trans 'Camera is already in use by another application.' %}",
+                noCameraFound: "{% trans 'No camera found on this device.' %}",
+                frontCameraUnavailable: "{% trans 'Front camera is not available with current settings. Please retry.' %}",
+                unknownCameraError: "{% trans 'Unknown camera error.' %}",
+                initFailedPrefix: "{% trans 'Initialization failed:' %}",
+                livenessVerifiedPrefix: "{% trans 'Liveness verified! Confidence:' %}"
+            },
+            labels: {
+                stepPrefix: "{% trans 'Step' %}",
+                completedSuffix: "{% trans 'completed!' %}"
+            },
+            challengeNames: {
+                center: "{% trans 'Center' %}",
+                left: "{% trans 'Left' %}",
+                right: "{% trans 'Right' %}",
+                mouth: "{% trans 'Mouth' %}"
+            }
+        };
+    </script>
+    <script src="{% static 'js/liveness.js' %}?v=20260224-4"></script>
 </body>
 </html>

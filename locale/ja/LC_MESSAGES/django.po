@@ -1,0 +1,734 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: MoonKYC\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-24 00:00+0000\n"
+"PO-Revision-Date: 2026-02-24 00:00+0000\n"
+"Last-Translator: Codex\n"
+"Language-Team: Japanese\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "MoonKYC - Document Verification"
+msgstr "MoonKYC - 書類確認"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Secure Identity Verification"
+msgstr "安全な本人確認"
+
+msgid "Fast checks with privacy-first safeguards."
+msgstr "プライバシーを重視した安全な本人確認をすばやく行います。"
+
+msgid "Step 1 of 14"
+msgstr "ステップ 1 / 14"
+
+msgid "Welcome"
+msgstr "ようこそ"
+
+msgid "Welcome to identity verification"
+msgstr "本人確認へようこそ"
+
+msgid "We will guide you through a short, secure verification flow."
+msgstr "短時間で安全な本人確認フローをご案内します。"
+
+msgid "What you will need"
+msgstr "ご準備いただくもの"
+
+msgid "Your ID document"
+msgstr "本人確認書類"
+
+msgid "Good lighting and a steady camera"
+msgstr "十分な明るさと安定したカメラ"
+
+msgid "Camera permission enabled in your browser"
+msgstr "ブラウザでカメラ権限を許可"
+
+msgid "About three minutes to finish"
+msgstr "完了まで約3分"
+
+msgid "Start Verification"
+msgstr "本人確認を開始"
+
+msgid "of"
+msgstr "/"
+
+msgid "Residency"
+msgstr "居住区分"
+
+msgid "Document Selection"
+msgstr "書類選択"
+
+msgid "Document Guide"
+msgstr "書類ガイド"
+
+msgid "Personal Info"
+msgstr "個人情報"
+
+msgid "Address"
+msgstr "住所"
+
+msgid "Contact"
+msgstr "連絡先"
+
+msgid "Document Capture"
+msgstr "書類撮影"
+
+msgid "Card Thickness Check"
+msgstr "カード厚み確認"
+
+msgid "Selfie and Liveness"
+msgstr "セルフィーとライブネス"
+
+msgid "Review"
+msgstr "確認"
+
+msgid "Submit"
+msgstr "送信"
+
+msgid "Processing"
+msgstr "処理中"
+
+msgid "Complete"
+msgstr "完了"
+
+msgid "Are you a Japanese or foreign resident?"
+msgstr "日本国籍の方ですか、それとも外国籍の居住者ですか？"
+
+msgid "This helps us show the right document options."
+msgstr "適切な本人確認書類の選択肢を表示するために使用します。"
+
+msgid "Japanese Citizen"
+msgstr "日本国籍"
+
+msgid "Foreign Resident"
+msgstr "外国籍居住者"
+
+msgid "Select your document"
+msgstr "本人確認書類を選択してください"
+
+msgid "Only documents relevant to your residency are shown."
+msgstr "居住区分に応じた書類のみ表示されます。"
+
+msgid "Prepare your document"
+msgstr "書類を準備してください"
+
+msgid "Please prepare your document before continuing."
+msgstr "続行する前に書類をご準備ください。"
+
+msgid "Continue"
+msgstr "続ける"
+
+msgid "Personal information"
+msgstr "個人情報"
+
+msgid "Enter your legal name and identity details."
+msgstr "氏名および本人情報を入力してください。"
+
+msgid "Full name"
+msgstr "氏名"
+
+msgid "Full name (Kana)"
+msgstr "氏名（カナ）"
+
+msgid "Date of birth"
+msgstr "生年月日"
+
+msgid "Gender"
+msgstr "性別"
+
+msgid "Select"
+msgstr "選択"
+
+msgid "Female"
+msgstr "女性"
+
+msgid "Male"
+msgstr "男性"
+
+msgid "Other"
+msgstr "その他"
+
+msgid "Nationality"
+msgstr "国籍"
+
+msgid "Address information"
+msgstr "住所情報"
+
+msgid "Share your current address."
+msgstr "現在の住所を入力してください。"
+
+msgid "Postal code"
+msgstr "郵便番号"
+
+msgid "Prefecture"
+msgstr "都道府県"
+
+msgid "City"
+msgstr "市区町村"
+
+msgid "Street address"
+msgstr "番地・建物名"
+
+msgid "Contact information"
+msgstr "連絡先情報"
+
+msgid "We will send a confirmation once submitted."
+msgstr "送信後に確認連絡をお送りします。"
+
+msgid "Email"
+msgstr "メールアドレス"
+
+msgid "Phone"
+msgstr "電話番号"
+
+msgid "External reference (optional)"
+msgstr "外部参照ID（任意）"
+
+msgid "Selfie and liveness check"
+msgstr "セルフィーとライブネス確認"
+
+msgid "We will confirm you are present before capturing your selfie."
+msgstr "セルフィー撮影の前に、ご本人がその場にいることを確認します。"
+
+msgid "What you will do"
+msgstr "実施内容"
+
+msgid "Look at the center of your screen"
+msgstr "画面の中央を見てください"
+
+msgid "Turn your head left"
+msgstr "顔を左に向けてください"
+
+msgid "Turn your head right"
+msgstr "顔を右に向けてください"
+
+msgid "Liveness opens automatically in fullscreen. If blocked, tap the retry button below."
+msgstr "ライブネス確認は全画面で自動的に開きます。ブロックされた場合は、下の再試行ボタンを押してください。"
+
+msgid "Skip liveness"
+msgstr "ライブネスをスキップ"
+
+msgid "Retry / Start Liveness"
+msgstr "再試行 / ライブネス開始"
+
+msgid "Review and confirm"
+msgstr "内容確認"
+
+msgid "Please confirm your details before submission."
+msgstr "送信前に内容をご確認ください。"
+
+msgid "Submit Verification"
+msgstr "本人確認を送信"
+
+msgid "Submitting your verification..."
+msgstr "本人確認を送信中..."
+
+msgid "Processing your verification..."
+msgstr "本人確認を処理中..."
+
+msgid "Submission received"
+msgstr "送信を受け付けました"
+
+msgid "Our team will review your verification and get back to you."
+msgstr "担当チームが本人確認内容を確認し、ご連絡します。"
+
+msgid "Start New Verification"
+msgstr "新しい本人確認を開始"
+
+msgid "Document mode"
+msgstr "書類モード"
+
+msgid "Capture document"
+msgstr "書類撮影"
+
+msgid "Position your document clearly"
+msgstr "書類をはっきり表示してください"
+
+msgid "Align your ID card with this guide"
+msgstr "このガイドに本人確認書類を合わせてください"
+
+msgid "TOP EDGE"
+msgstr "上端"
+
+msgid "FACE"
+msgstr "顔"
+
+msgid "Hold from below"
+msgstr "下から持つ"
+
+msgid "Position your document within the frame"
+msgstr "枠内に書類を合わせてください"
+
+msgid "Keep the card steady and fully visible."
+msgstr "カードを安定させ、全体が見えるようにしてください。"
+
+msgid "Snap"
+msgstr "撮影"
+
+msgid "Retake Photo"
+msgstr "撮り直す"
+
+msgid "Use This Photo"
+msgstr "この写真を使う"
+
+msgid "Driver License"
+msgstr "運転免許証"
+
+msgid "My Number Card"
+msgstr "マイナンバーカード"
+
+msgid "Passport"
+msgstr "パスポート"
+
+msgid "Residence Card"
+msgstr "在留カード"
+
+msgid "Please prepare your driver license (front and back)."
+msgstr "運転免許証（表・裏）を準備してください。"
+
+msgid "Please prepare your My Number card (front and back)."
+msgstr "マイナンバーカード（表・裏）を準備してください。"
+
+msgid "Please prepare your passport photo page."
+msgstr "パスポートの顔写真ページを準備してください。"
+
+msgid "Please prepare your residence card (front and back)."
+msgstr "在留カード（表・裏）を準備してください。"
+
+msgid "License number"
+msgstr "免許証番号"
+
+msgid "Issue date"
+msgstr "交付日"
+
+msgid "Expiry date"
+msgstr "有効期限"
+
+msgid "My Number"
+msgstr "マイナンバー"
+
+msgid "Passport number"
+msgstr "パスポート番号"
+
+msgid "Passport expiry"
+msgstr "パスポート有効期限"
+
+msgid "Residence status"
+msgstr "在留資格"
+
+msgid "Residence card number"
+msgstr "在留カード番号"
+
+msgid "Residence card expiry"
+msgstr "在留カード有効期限"
+
+msgid "Thickness check: Top edge visible"
+msgstr "厚み確認：上端が見える状態"
+
+msgid "Tilt card backward — show TOP edge"
+msgstr "カードを後ろに傾けて上端を見せてください"
+
+msgid "Hold the card and tilt the top edge away from you so the thickness is visible."
+msgstr "カードを持ち、上端を奥に傾けて厚みが見えるようにしてください。"
+
+msgid "Camera Mode1"
+msgstr "カメラモード1"
+
+msgid "Tilt"
+msgstr "傾き"
+
+msgid "Thickness at the top of the card."
+msgstr "カード上端の厚みを確認します。"
+
+msgid "Align your card with the guide and show top edge."
+msgstr "ガイドにカードを合わせ、上端が見えるようにしてください。"
+
+msgid "Tilt backward — show top edge."
+msgstr "後ろに傾けて上端を見せてください。"
+
+msgid "Capture your selfie"
+msgstr "セルフィーを撮影してください"
+
+msgid "Make sure your face is centered and clear."
+msgstr "顔が中央にあり、はっきり見えることを確認してください。"
+
+msgid "Position your face within the frame"
+msgstr "枠内に顔を合わせてください"
+
+msgid "Selfie mode"
+msgstr "セルフィーモード"
+
+msgid "Capture selfie"
+msgstr "セルフィー撮影"
+
+msgid "Center your face and hold still."
+msgstr "顔を中央に合わせ、動かないでください。"
+
+msgid "Use good lighting and avoid blur."
+msgstr "十分な明るさを確保し、ブレを避けてください。"
+
+msgid "Capture the back of your document"
+msgstr "本人確認書類の裏面を撮影してください"
+
+msgid "Make sure the back side is clear and readable."
+msgstr "裏面の情報が鮮明で読み取れることを確認してください。"
+
+msgid "Position the back within the frame"
+msgstr "裏面を枠内に合わせてください"
+
+msgid "Position the front within the frame"
+msgstr "表面を枠内に合わせてください"
+
+msgid "Capture back side"
+msgstr "裏面を撮影"
+
+msgid "Capture front side"
+msgstr "表面を撮影"
+
+msgid "Place the back of your ID clearly."
+msgstr "本人確認書類の裏面をはっきり配置してください。"
+
+msgid "Place the front of your ID clearly."
+msgstr "本人確認書類の表面をはっきり配置してください。"
+
+msgid "Avoid glare and keep all corners visible."
+msgstr "反射を避け、四隅がすべて見えるようにしてください。"
+
+msgid "Camera failed to start:"
+msgstr "カメラの起動に失敗しました:"
+
+msgid "Camera requires a secure page (HTTPS)."
+msgstr "カメラの使用には安全なページ（HTTPS）が必要です。"
+
+msgid "Camera is blocked by the current tab/session. Close other camera screens and try again."
+msgstr "現在のタブ/セッションでカメラがブロックされています。他のカメラ画面を閉じて再試行してください。"
+
+msgid "No camera found on your device."
+msgstr "この端末でカメラが見つかりません。"
+
+msgid "Camera constraints are not supported on this device. Please try again."
+msgstr "この端末ではカメラ設定の条件に対応していません。再試行してください。"
+
+msgid "Camera error:"
+msgstr "カメラエラー:"
+
+msgid "Unknown error."
+msgstr "不明なエラーです。"
+
+msgid "Missing session. Please restart verification."
+msgstr "セッションがありません。本人確認を最初からやり直してください。"
+
+msgid "Uploading image..."
+msgstr "画像をアップロード中..."
+
+msgid "Capture failed."
+msgstr "撮影に失敗しました。"
+
+msgid "captured."
+msgstr "を撮影しました。"
+
+msgid "Upload failed:"
+msgstr "アップロード失敗:"
+
+msgid "Tilt check required. Please capture"
+msgstr "厚み確認が必要です。"
+
+msgid "tilt photos first."
+msgstr "枚の厚み写真を先に撮影してください。"
+
+msgid "Popup blocked. Allow popups for this site and try again."
+msgstr "ポップアップがブロックされました。このサイトのポップアップを許可して再試行してください。"
+
+msgid "Starting liveness detection..."
+msgstr "ライブネス確認を開始しています..."
+
+msgid "Liveness verified. Confidence:"
+msgstr "ライブネス確認済み。信頼度:"
+
+msgid "Liveness verification failed. Please try again."
+msgstr "ライブネス確認に失敗しました。再試行してください。"
+
+msgid "Failed to save liveness result."
+msgstr "ライブネス結果の保存に失敗しました。"
+
+msgid "Return to this verification tab to continue selfie capture."
+msgstr "セルフィー撮影を続けるため、この本人確認タブに戻ってください。"
+
+msgid "Failed to start session."
+msgstr "セッション開始に失敗しました。"
+
+msgid "Session start failed:"
+msgstr "セッション開始失敗:"
+
+msgid "Full name is required."
+msgstr "氏名は必須です。"
+
+msgid "Citizenship"
+msgstr "国籍区分"
+
+msgid "Japanese"
+msgstr "日本"
+
+msgid "Foreign"
+msgstr "外国"
+
+msgid "Document"
+msgstr "書類"
+
+msgid "Document images"
+msgstr "書類画像"
+
+msgid "Front"
+msgstr "表面"
+
+msgid "Back"
+msgstr "裏面"
+
+msgid "Tilt frames"
+msgstr "厚み画像"
+
+msgid "Selfie"
+msgstr "セルフィー"
+
+msgid "Captured"
+msgstr "撮影済み"
+
+msgid "Pending"
+msgstr "未完了"
+
+msgid "Completed"
+msgstr "完了"
+
+msgid "Skipped"
+msgstr "スキップ"
+
+msgid "Your verification is submitted. Our team will review it soon."
+msgstr "本人確認を送信しました。担当チームがまもなく確認します。"
+
+msgid "AI check"
+msgstr "AI判定"
+
+msgid "Verified"
+msgstr "確認済み"
+
+msgid "Needs review"
+msgstr "要レビュー"
+
+msgid "Confidence"
+msgstr "信頼度"
+
+msgid "Detected card"
+msgstr "検出された書類"
+
+msgid "Card physical check"
+msgstr "カード実物チェック"
+
+msgid "Passed"
+msgstr "合格"
+
+msgid "Physical score"
+msgstr "実物スコア"
+
+msgid "N/A"
+msgstr "該当なし"
+
+msgid "We received your verification. Our team will review it manually."
+msgstr "本人確認を受け付けました。担当チームが手動で確認します。"
+
+msgid "Debug liveness mode requires tenant_slug and customer_id."
+msgstr "デバッグ用ライブネスモードには tenant_slug と customer_id が必要です。"
+
+msgid "Starting temporary liveness debug mode..."
+msgstr "一時的なライブネスデバッグモードを開始しています..."
+
+msgid "Skipping liveness detection may reduce security. Continue anyway?"
+msgstr "ライブネス確認をスキップすると安全性が低下する可能性があります。続行しますか？"
+
+msgid "Hold card clearly in the center, then tilt as instructed."
+msgstr "カードを中央にはっきり合わせてから、指示どおりに傾けてください。"
+
+msgid "Angle looks good. Tap Snap."
+msgstr "角度は良好です。Snapをタップしてください。"
+
+msgid "Good angle detected. Tap Snap now."
+msgstr "良い角度を検出しました。今すぐSnapをタップしてください。"
+
+msgid "Center"
+msgstr "中央"
+
+msgid "Left"
+msgstr "左"
+
+msgid "Right"
+msgstr "右"
+
+msgid "Mouth"
+msgstr "口"
+
+msgid "YYYY-MM-DD"
+msgstr "YYYY-MM-DD"
+
+msgid "Document capture"
+msgstr "書類撮影"
+
+msgid "Capture the front of your document"
+msgstr "本人確認書類の表面を撮影してください"
+
+msgid "Make sure all details are clear and readable."
+msgstr "すべての情報が鮮明で読み取れることを確認してください。"
+
+msgid "Card thickness check"
+msgstr "カード厚みチェック"
+
+msgid "Before liveness, hold your ID card at a slight angle so the edge is visible."
+msgstr "ライブネス確認の前に、本人確認書類を少し傾けて縁が見えるようにしてください。"
+
+msgid "Hold the real ID card in your hand (not screen/photo)."
+msgstr "実物の本人確認書類を手に持ってください（画面・写真は不可）。"
+
+msgid "Take one thickness photo only."
+msgstr "厚み確認用の写真は1枚のみ撮影してください。"
+
+msgid "Tilt backward so the TOP edge is visible."
+msgstr "上端（TOP edge）が見えるように後ろへ傾けてください。"
+
+msgid "Keep the card steady and centered, then tap Snap."
+msgstr "カードを中央で安定させてから、Snapをタップしてください。"
+
+msgid "Start Tilt Check"
+msgstr "厚みチェックを開始"
+
+msgid "Liveness Detection - eKYC"
+msgstr "ライブネス検知 - eKYC"
+
+msgid "Step 5 of 5"
+msgstr "ステップ 5 / 5"
+
+msgid "Liveness Check"
+msgstr "ライブネス確認"
+
+msgid "Verify you are present"
+msgstr "ご本人がその場にいることを確認します"
+
+msgid "Quick movement prompts confirm a live face."
+msgstr "簡単な動作指示で実在する顔かどうかを確認します。"
+
+msgid "Secure Session"
+msgstr "安全なセッション"
+
+msgid "Loading AI models..."
+msgstr "AIモデルを読み込み中..."
+
+msgid "This may take 10-30 seconds on first load."
+msgstr "初回読み込み時は10〜30秒かかる場合があります。"
+
+msgid "Please wait while we initialize the face detection system."
+msgstr "顔検出システムを初期化しています。しばらくお待ちください。"
+
+msgid "Position your face in the oval"
+msgstr "顔を楕円の中に合わせてください"
+
+msgid "Tips for best results"
+msgstr "うまく検出するためのヒント"
+
+msgid "Ensure good lighting on your face"
+msgstr "顔に十分な明るさを確保してください"
+
+msgid "Remove sunglasses or face coverings"
+msgstr "サングラスや顔を覆うものを外してください"
+
+msgid "Keep your face centered in the oval"
+msgstr "顔を楕円の中央に保ってください"
+
+msgid "Follow the prompts slowly and clearly"
+msgstr "指示にゆっくりはっきり従ってください"
+
+msgid "Live prompts"
+msgstr "ライブ指示"
+
+msgid "Complete all steps to verify"
+msgstr "確認のために全ステップを完了してください"
+
+msgid "Face detected"
+msgstr "顔を検出しました"
+
+msgid "Turn head left"
+msgstr "左を向く"
+
+msgid "Turn head right"
+msgstr "右を向く"
+
+msgid "Open mouth wide"
+msgstr "口を大きく開ける"
+
+msgid "Follow the instructions to complete verification"
+msgstr "指示に従って確認を完了してください"
+
+msgid "Start Liveness Check"
+msgstr "ライブネス確認を開始"
+
+msgid "Your privacy is protected. Face data is processed locally and not stored."
+msgstr "プライバシーは保護されています。顔データはローカルで処理され、保存されません。"
+
+msgid "Look at the center"
+msgstr "中央を見てください"
+
+msgid "Turn your head LEFT"
+msgstr "顔を左に向けてください"
+
+msgid "Turn your head RIGHT"
+msgstr "顔を右に向けてください"
+
+msgid "Open your MOUTH WIDE!"
+msgstr "口を大きく開けてください！"
+
+msgid "Ready! Click \"Start Liveness Check\" to begin"
+msgstr "準備完了です。「ライブネス確認を開始」をクリックして始めてください"
+
+msgid "Start Again"
+msgstr "もう一度開始"
+
+msgid "Camera access failed."
+msgstr "カメラにアクセスできませんでした。"
+
+msgid "Camera requires HTTPS (or localhost)."
+msgstr "カメラの使用にはHTTPS（またはlocalhost）が必要です。"
+
+msgid "Camera is busy in another tab/window. Please close other camera pages and retry."
+msgstr "他のタブ/ウィンドウでカメラが使用中です。他のカメラページを閉じて再試行してください。"
+
+msgid "Camera permission denied. Please allow camera access in browser settings."
+msgstr "カメラの許可が拒否されました。ブラウザ設定でカメラアクセスを許可してください。"
+
+msgid "Camera is already in use by another application."
+msgstr "カメラは別のアプリケーションで使用中です。"
+
+msgid "No camera found on this device."
+msgstr "このデバイスでカメラが見つかりません。"
+
+msgid "Front camera is not available with current settings. Please retry."
+msgstr "現在の設定では前面カメラを使用できません。再試行してください。"
+
+msgid "Unknown camera error."
+msgstr "不明なカメラエラーです。"
+
+msgid "Initialization failed:"
+msgstr "初期化に失敗しました:"
+
+msgid "Liveness verified! Confidence:"
+msgstr "ライブネス確認完了。信頼度:"
+
+msgid "Step"
+msgstr "ステップ"
+
+msgid "completed!"
+msgstr "完了！"

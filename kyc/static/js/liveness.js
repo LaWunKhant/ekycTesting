@@ -1,4 +1,32 @@
 
+        const l10n = window.LIVENESS_I18N || {};
+        const tInstructions = l10n.instructions || {};
+        const tStatus = l10n.status || {};
+        const tLabels = l10n.labels || {};
+        const tChallengeNames = l10n.challengeNames || {};
+        const pageLang = (document.documentElement.lang || '').toLowerCase();
+
+        function tr(dict, key, fallback) {
+            return (dict && dict[key]) || fallback;
+        }
+
+        function trReadyFallback() {
+            if (pageLang.startsWith('ja')) {
+                return '準備完了です。「ライブネス確認を開始」をクリックして始めてください';
+            }
+            return 'Ready! Click "Start Liveness Check" to begin';
+        }
+
+        function getReadyStatusText() {
+            const injected = tr(tStatus, 'ready', '');
+            if (pageLang.startsWith('ja')) {
+                if (!injected || injected.includes('Ready! Click')) {
+                    return trReadyFallback();
+                }
+            }
+            return injected || trReadyFallback();
+        }
+
         let video;
         let model;
         let detectionInterval;
@@ -15,10 +43,10 @@
         console.log("Liveness SESSION_ID:", SESSION_ID);
 
         const instructions = {
-            center: 'Look at the center',
-            left: 'Turn your head LEFT ⬅️',
-            right: 'Turn your head RIGHT ➡️',
-            mouth: 'Open your MOUTH WIDE! 😮'
+            center: tr(tInstructions, 'center', 'Look at the center'),
+            left: `${tr(tInstructions, 'left', 'Turn your head LEFT')} ⬅️`,
+            right: `${tr(tInstructions, 'right', 'Turn your head RIGHT')} ➡️`,
+            mouth: `${tr(tInstructions, 'mouth', 'Open your MOUTH WIDE!')} 😮`
         };
 
         const instructionOrder = ['center', 'left', 'right', 'mouth'];
@@ -61,7 +89,7 @@
                 document.getElementById('loadingScreen').classList.add('hidden');
                 document.getElementById('mainScreen').classList.remove('hidden');
 
-                showStatus('info', 'Ready! Click "Start Liveness Check" to begin');
+                showStatus('info', getReadyStatusText());
 
             } catch (error) {
                 console.error('Init error:', error);
@@ -86,12 +114,12 @@
                 }
             }
 
-            throw lastError || new Error('Camera access failed');
+            throw lastError || new Error(tr(tStatus, 'cameraAccessFailed', 'Camera access failed.'));
         }
 
         async function startDetection() {
             document.getElementById('startBtn').disabled = true;
-            showStatus('info', 'Starting liveness detection...');
+            showStatus('info', tr(tStatus, 'starting', 'Starting liveness detection...'));
             isDetecting = true;
 
             try {
@@ -203,7 +231,8 @@
             if (challengeEl) challengeEl.classList.add('completed');
             updateInstruction();
 
-            showStatus('success', `✓ ${challenge.toUpperCase()} completed!`);
+            const challengeLabel = tr(tChallengeNames, challenge, challenge.toUpperCase());
+            showStatus('success', `✓ ${challengeLabel} ${tr(tLabels, 'completedSuffix', 'completed!')}`);
             setTimeout(() => {
                 if (isDetecting) {
                     showStatus('info', instructions[currentInstruction]);
@@ -214,7 +243,7 @@
         function updateInstruction() {
             const instructionEl = document.getElementById('instruction');
             const index = Math.max(0, instructionOrder.indexOf(currentInstruction));
-            const stepText = `Step ${index + 1}/${instructionOrder.length}`;
+            const stepText = `${tr(tLabels, 'stepPrefix', 'Step')} ${index + 1}/${instructionOrder.length}`;
             if (instructionEl) {
                 instructionEl.textContent = `${stepText}: ${instructions[currentInstruction]}`;
             }
@@ -233,7 +262,7 @@
             const completed = Object.values(challenges).filter(v => v).length;
             const confidence = (completed / 4) * 100;
 
-            showStatus('success', `✅ Liveness verified! Confidence: ${confidence}%`);
+            showStatus('success', `✅ ${tr(tStatus, 'livenessVerifiedPrefix', 'Liveness verified! Confidence:')} ${confidence}%`);
 
             const result = {
                 session_id: SESSION_ID,
@@ -259,7 +288,7 @@
                     window.close();
                 } else {
                     document.getElementById('startBtn').disabled = false;
-                    document.getElementById('startBtn').textContent = 'Start Again';
+                    document.getElementById('startBtn').textContent = tr(tStatus, 'startAgain', 'Start Again');
                     isDetecting = false;
                 }
             }, 350);
@@ -282,16 +311,16 @@
         }
 
         function getCameraErrorMessage(error, permissionState = null) {
-            if (!error) return 'Camera access failed.';
-            if (!window.isSecureContext) return 'Camera requires HTTPS (or localhost).';
+            if (!error) return tr(tStatus, 'cameraAccessFailed', 'Camera access failed.');
+            if (!window.isSecureContext) return tr(tStatus, 'cameraNeedsHttps', 'Camera requires HTTPS (or localhost).');
             if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                if (permissionState === 'granted') return 'Camera is busy in another tab/window. Please close other camera pages and retry.';
-                return 'Camera permission denied. Please allow camera access in browser settings.';
+                if (permissionState === 'granted') return tr(tStatus, 'cameraBusyTab', 'Camera is busy in another tab/window. Please close other camera pages and retry.');
+                return tr(tStatus, 'cameraPermissionDenied', 'Camera permission denied. Please allow camera access in browser settings.');
             }
-            if (error.name === 'NotReadableError' || error.name === 'TrackStartError') return 'Camera is already in use by another application.';
-            if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') return 'No camera found on this device.';
-            if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') return 'Front camera is not available with current settings. Please retry.';
-            return `Initialization failed: ${error.message || 'Unknown camera error.'}`;
+            if (error.name === 'NotReadableError' || error.name === 'TrackStartError') return tr(tStatus, 'cameraInUse', 'Camera is already in use by another application.');
+            if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') return tr(tStatus, 'noCameraFound', 'No camera found on this device.');
+            if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') return tr(tStatus, 'frontCameraUnavailable', 'Front camera is not available with current settings. Please retry.');
+            return `${tr(tStatus, 'initFailedPrefix', 'Initialization failed:')} ${error.message || tr(tStatus, 'unknownCameraError', 'Unknown camera error.')}`;
         }
 
         window.addEventListener('load', init);

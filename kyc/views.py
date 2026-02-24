@@ -21,6 +21,8 @@ from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from django.utils.text import slugify
 from urllib.parse import urlencode
+from django.core.paginator import Paginator
+from django.db.models import Q
 
 from .forms import TenantCreateForm, TenantUpdateForm
 from .services.card_physical_check import analyze_card_physicality
@@ -337,7 +339,6 @@ def tenant_dashboard(request, tenant_slug):
         return HttpResponseForbidden("Tenant is inactive")
 
     tenant = request.user.tenant
-    sessions = VerificationSession.objects.filter(tenant=tenant).order_by("-created_at")[:200]
     latest_link = None
 
     if request.method == "POST" and request.POST.get("action") == "create_customer":
@@ -380,7 +381,6 @@ def tenant_dashboard(request, tenant_slug):
 
     context = {
         "tenant": tenant,
-        "sessions": sessions,
         "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
         "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
         "customer_form": customer_form,
@@ -390,6 +390,62 @@ def tenant_dashboard(request, tenant_slug):
         **_impersonation_context(request),
     }
     return render(request, "kyc/tenant_dashboard.html", context)
+
+
+def _tenant_sessions_panel_context(tenant, request):
+    search_query = (request.GET.get("q") or "").strip()
+    review_status_filter = (request.GET.get("review_status") or "").strip()
+
+    sessions_qs = VerificationSession.objects.select_related("customer").filter(tenant=tenant)
+    if review_status_filter in {"pending", "approved", "rejected", "needs_info"}:
+        sessions_qs = sessions_qs.filter(review_status=review_status_filter)
+    if search_query:
+        sessions_qs = sessions_qs.filter(
+            Q(customer__full_name__icontains=search_query) |
+            Q(customer__email__icontains=search_query)
+        )
+    sessions_qs = sessions_qs.order_by("-created_at")
+
+    paginator = Paginator(sessions_qs, 10)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    query_params = request.GET.copy()
+    if "page" in query_params:
+        query_params.pop("page")
+    if "partial" in query_params:
+        query_params.pop("partial")
+
+    return {
+        "tenant": tenant,
+        "sessions": page_obj.object_list,
+        "page_obj": page_obj,
+        "search_query": search_query,
+        "review_status_filter": review_status_filter,
+        "query_string_without_page": query_params.urlencode(),
+    }
+
+
+@login_required
+def tenant_sessions(request, tenant_slug):
+    if not _require_user_type(request.user, {"owner", "admin", "staff"}):
+        return _role_denied()
+    if not request.user.tenant:
+        return HttpResponseForbidden("No tenant assigned")
+    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
+        return HttpResponseForbidden("Tenant is inactive")
+    if tenant_slug != request.user.tenant.slug:
+        return HttpResponseForbidden("Access denied for tenant")
+
+    tenant = request.user.tenant
+    context = {
+        **_tenant_sessions_panel_context(tenant, request),
+        "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
+        "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
+        **_impersonation_context(request),
+    }
+    if request.GET.get("partial") == "sessions" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render(request, "kyc/_tenant_sessions_panel.html", context)
+    return render(request, "kyc/tenant_sessions.html", context)
 
 
 def tenant_dashboard_legacy(request):

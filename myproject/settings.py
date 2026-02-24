@@ -20,6 +20,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -70,7 +71,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "en"
+LANGUAGES = [
+    ("en", "English"),
+    ("ja", "日本語"),
+]
+LOCALE_PATHS = [
+    BASE_DIR / "locale",
+]
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
@@ -96,7 +104,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Optional: set this to your ngrok URL for shareable links
-PUBLIC_BASE_URL = "https://72e3-130-62-79-44.ngrok-free.app"
+PUBLIC_BASE_URL = " https://5f0b-130-62-79-44.ngrok-free.app"
 
 # Looking to send emails in production? Check out our Email API/SMTP product!
 EMAIL_HOST = 'sandbox.smtp.mailtrap.io'

@@ -9,6 +9,7 @@ urlpatterns = [
     path('review/', views.review_sessions, name='review_sessions'),
     path('review/<uuid:session_id>/', views.review_session_detail, name='review_session_detail'),
     path('<slug:tenant_slug>/dashboard/', views.tenant_dashboard, name='tenant_dashboard'),
+    path('<slug:tenant_slug>/sessions/', views.tenant_sessions, name='tenant_sessions'),
     path('platform/', views.platform_dashboard_legacy, name='platform_dashboard_legacy'),
     path('dashboard/', views.tenant_dashboard_legacy, name='tenant_dashboard_legacy'),
     path('dashboard/team/', views.tenant_team, name='tenant_team'),

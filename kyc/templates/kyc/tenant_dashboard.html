@@ -164,101 +164,18 @@
                 </div>
             </div>
 
-            <div class="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white/80 shadow-xl shadow-slate-200/40 fade-up fade-up-delay-3 dark:border-slate-800 dark:bg-slate-900/60 dark:shadow-slate-950/40">
-                <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
-                    <h3 class="text-base font-semibold">Recent Customers Sessions</h3>
-                    <span class="text-xs text-slate-500 dark:text-slate-400">Latest 200</span>
+            <div class="mt-8 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-200/40 fade-up fade-up-delay-3 dark:border-slate-800 dark:bg-slate-900/60 dark:shadow-slate-950/40">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold">Customer Sessions</h3>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            Open the dedicated sessions page to search by customer name/email, filter review status, and paginate through results.
+                        </p>
+                    </div>
+                    <a href="{% url 'tenant_sessions' tenant.slug %}" class="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
+                        View Customer Sessions
+                    </a>
                 </div>
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-100/80 text-slate-500 dark:bg-slate-950/60 dark:text-slate-400">
-                        <tr>
-                            <th class="text-left px-4 py-3 font-medium">Customer</th>
-                            <th class="text-left px-4 py-3 font-medium">Customer ID</th>
-                            <th class="text-left px-4 py-3 font-medium">Session ID</th>
-                            <th class="text-left px-4 py-3 font-medium">Status</th>
-                            <th class="text-left px-4 py-3 font-medium">Review</th>
-                            <th class="text-left px-4 py-3 font-medium">Images</th>
-                            <th class="text-left px-4 py-3 font-medium">Created</th>
-                            <th class="text-left px-4 py-3 font-medium"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-                        {% for s in sessions %}
-                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                            <td class="px-4 py-3">
-                                <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                                    {{ s.customer.full_name|default:"Unknown" }}
-                                </div>
-                                <div class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ s.customer.email|default:"No email" }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
-                                {{ s.customer.id|default:"-" }}
-                            </td>
-                            <td class="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
-                                {{ s.id }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-300">{{ s.status }}</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-300">{{ s.review_status }}</span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="grid grid-cols-4 gap-2 min-w-[180px]">
-                                    <div class="text-center">
-                                        {% if s.document_front_url %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.document_front_url }}" alt="Front">
-                                        {% elif s.front_image %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.front_image }}" alt="Front">
-                                        {% else %}
-                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
-                                        {% endif %}
-                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Front</div>
-                                    </div>
-                                    <div class="text-center">
-                                        {% if s.document_back_url %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.document_back_url }}" alt="Back">
-                                        {% elif s.back_image %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.back_image }}" alt="Back">
-                                        {% else %}
-                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
-                                        {% endif %}
-                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Back</div>
-                                    </div>
-                                    <div class="text-center">
-                                        {% if s.thickness_card %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.thickness_card }}" alt="Thickness">
-                                        {% else %}
-                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
-                                        {% endif %}
-                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Thickness</div>
-                                    </div>
-                                    <div class="text-center">
-                                        {% if s.selfie_url %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.selfie_url }}" alt="Selfie">
-                                        {% elif s.selfie_image %}
-                                            <img class="h-10 w-10 rounded-md object-cover mx-auto border border-slate-200 dark:border-slate-700" src="{{ media_url }}{{ s.selfie_image }}" alt="Selfie">
-                                        {% else %}
-                                            <div class="h-10 w-10 rounded-md mx-auto border border-dashed border-slate-300 dark:border-slate-700"></div>
-                                        {% endif %}
-                                        <div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Selfie</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-slate-700 dark:text-slate-300">{{ s.created_at }}</td>
-                            <td class="px-4 py-3">
-                                <a class="text-cyan-400 hover:text-cyan-300" href="{% url 'review_session_detail' s.id %}">Review</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td class="px-4 py-6 text-slate-500 dark:text-slate-400" colspan="8">No sessions yet.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>

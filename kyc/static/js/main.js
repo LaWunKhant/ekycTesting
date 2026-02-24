@@ -10,24 +10,173 @@ const params = new URLSearchParams(window.location.search);
 const TENANT_SLUG = window.TENANT_SLUG || params.get("tenant") || params.get("tenant_slug");
 const CUSTOMER_ID = window.CUSTOMER_ID || params.get("customer_id");
 const IS_PHONE = window.matchMedia("(max-width: 640px)").matches;
+const IS_NARROW_PHONE = window.matchMedia("(max-width: 430px)").matches;
 const DEBUG_MODE = (params.get("debug") || "").toLowerCase();
 const DEBUG_AUTOSTART = ["1", "true", "yes"].includes((params.get("autostart") || "").toLowerCase());
+const KYC_I18N = window.KYC_I18N || {};
+const KYC_LABELS = KYC_I18N.labels || {};
+const KYC_STEP_TITLES = KYC_I18N.steps || {};
+const KYC_DOCUMENTS = KYC_I18N.documents || {};
+const KYC_DOCUMENT_GUIDES = KYC_I18N.documentGuides || {};
+const KYC_FIELD_LABELS = KYC_I18N.fieldLabels || {};
+const KYC_CAPTURE_TEXT = KYC_I18N.captureText || {};
+const KYC_STATUS_TEXT = KYC_I18N.statusText || {};
+const KYC_REVIEW_TEXT = KYC_I18N.reviewText || {};
+const KYC_COMPLETION_TEXT = KYC_I18N.completionText || {};
+const KYC_CAMERA_TEXT = KYC_I18N.cameraText || {};
+const KYC_MISC_TEXT = KYC_I18N.miscText || {};
+const KYC_INPUT_TEXT = KYC_I18N.inputText || {};
+const KYC_LANG_RESUME_KEY = "kyc_lang_resume_v1";
+
+function tKyc(dict, key, fallback) {
+    return (dict && dict[key]) || fallback;
+}
+
+function normalizeDateTextValue(v) {
+    const raw = String(v || "").trim().replace(/\//g, "-").replace(/\./g, "-");
+    const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) return raw;
+    const yyyy = m[1];
+    const mm = m[2].padStart(2, "0");
+    const dd = m[3].padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function applySmallScreenDateInputFallback(root = document) {
+    if (!IS_NARROW_PHONE || !root || !root.querySelectorAll) return;
+
+    root.querySelectorAll('input[type="date"]').forEach((input) => {
+        if (input.dataset.dateFallbackApplied === "1") return;
+        input.dataset.dateFallbackApplied = "1";
+        input.classList.add("date-fallback-text");
+        // Keep native date picker on iPhone-sized screens; only improve focus/scroll behavior.
+        input.addEventListener("focus", () => {
+            setTimeout(() => {
+                input.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 50);
+        });
+    });
+}
+
+function snapshotFormValues() {
+    const values = {};
+    document.querySelectorAll("input[id], select[id], textarea[id]").forEach((el) => {
+        if (!el.id) return;
+        if (el.type === "checkbox" || el.type === "radio") {
+            values[el.id] = !!el.checked;
+            return;
+        }
+        values[el.id] = el.value;
+    });
+    return values;
+}
+
+function restoreFormValues(values) {
+    if (!values || typeof values !== "object") return;
+    Object.entries(values).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === "checkbox" || el.type === "radio") {
+            el.checked = !!value;
+            return;
+        }
+        el.value = value == null ? "" : value;
+    });
+}
+
+function captureGuideFromDocumentType() {
+    const sel = documentOptions.find(o => o.id === flowData.document_type);
+    const gt = document.getElementById("guideTitle");
+    const gb = document.getElementById("guideBody");
+    if (sel && gt) gt.textContent = sel.label;
+    if (sel && gb) gb.textContent = sel.guide;
+}
+
+window.saveKycFlowForLanguageSwitch = function saveKycFlowForLanguageSwitch() {
+    try {
+        const activeScreen = document.querySelector("[data-screen].active");
+        const payload = {
+            pathname: window.location.pathname,
+            search: window.location.search,
+            savedAt: Date.now(),
+            currentStepIndex,
+            activeScreenId: activeScreen ? activeScreen.id : null,
+            SESSION_ID,
+            livenessCompleted,
+            captureStep,
+            flowData,
+            capturedPaths,
+            capturedTiltPaths,
+            tiltCaptureIndex,
+            formValues: snapshotFormValues(),
+        };
+        sessionStorage.setItem(KYC_LANG_RESUME_KEY, JSON.stringify(payload));
+    } catch (e) {
+        console.warn("Failed to save flow state for language switch:", e);
+    }
+};
+
+function restoreKycFlowAfterLanguageSwitch() {
+    try {
+        const raw = sessionStorage.getItem(KYC_LANG_RESUME_KEY);
+        if (!raw) return false;
+        sessionStorage.removeItem(KYC_LANG_RESUME_KEY);
+        const data = JSON.parse(raw);
+        if (!data || data.pathname !== window.location.pathname || data.search !== window.location.search) return false;
+        if (Date.now() - Number(data.savedAt || 0) > 15 * 60 * 1000) return false;
+
+        if (typeof data.currentStepIndex === "number") currentStepIndex = data.currentStepIndex;
+        if (typeof data.SESSION_ID === "string" || data.SESSION_ID === null) SESSION_ID = data.SESSION_ID;
+        livenessCompleted = !!data.livenessCompleted;
+        if (typeof data.captureStep === "string") captureStep = data.captureStep;
+        if (data.flowData && typeof data.flowData === "object") {
+            flowData.citizenship_type = data.flowData.citizenship_type ?? flowData.citizenship_type;
+            flowData.document_type = data.flowData.document_type ?? flowData.document_type;
+            flowData.document_needs_back = !!data.flowData.document_needs_back;
+            flowData.customer = data.flowData.customer || {};
+            flowData.document = data.flowData.document || { document_type: null, document_data: {} };
+        }
+        if (data.capturedPaths && typeof data.capturedPaths === "object") capturedPaths = data.capturedPaths;
+        if (Array.isArray(data.capturedTiltPaths)) capturedTiltPaths = data.capturedTiltPaths;
+        if (typeof data.tiltCaptureIndex === "number") tiltCaptureIndex = data.tiltCaptureIndex;
+
+        if (flowData.citizenship_type) {
+            const kanaField = document.getElementById("kanaField");
+            if (kanaField) kanaField.classList.toggle("hidden", flowData.citizenship_type !== "japanese");
+            renderDocumentOptions();
+        }
+        if (flowData.document_type) {
+            renderDocumentFields(flowData.document_type);
+            captureGuideFromDocumentType();
+        }
+
+        setStep(
+            Math.max(0, Math.min(Number(data.currentStepIndex || 0), flowSteps.length - 1)),
+            typeof data.activeScreenId === "string" ? data.activeScreenId : undefined
+        );
+        restoreFormValues(data.formValues);
+        return true;
+    } catch (e) {
+        console.warn("Failed to restore flow state after language switch:", e);
+        return false;
+    }
+}
 
 const flowSteps = [
-    { id: "welcome",    title: "Welcome" },
-    { id: "citizenship",title: "Residency" },
-    { id: "document",   title: "Document Selection" },
-    { id: "guide",      title: "Document Guide" },
-    { id: "personal",   title: "Personal Info" },
-    { id: "address",    title: "Address" },
-    { id: "contact",    title: "Contact" },
-    { id: "capture",    title: "Document Capture" },
-    { id: "tilt",       title: "Card Thickness Check" },
-    { id: "liveness",   title: "Selfie and Liveness" },
-    { id: "review",     title: "Review" },
-    { id: "submit",     title: "Submit" },
-    { id: "processing", title: "Processing" },
-    { id: "complete",   title: "Complete" },
+    { id: "welcome",    title: tKyc(KYC_STEP_TITLES, "welcome", "Welcome") },
+    { id: "citizenship",title: tKyc(KYC_STEP_TITLES, "citizenship", "Residency") },
+    { id: "document",   title: tKyc(KYC_STEP_TITLES, "document", "Document Selection") },
+    { id: "guide",      title: tKyc(KYC_STEP_TITLES, "guide", "Document Guide") },
+    { id: "personal",   title: tKyc(KYC_STEP_TITLES, "personal", "Personal Info") },
+    { id: "address",    title: tKyc(KYC_STEP_TITLES, "address", "Address") },
+    { id: "contact",    title: tKyc(KYC_STEP_TITLES, "contact", "Contact") },
+    { id: "capture",    title: tKyc(KYC_STEP_TITLES, "capture", "Document Capture") },
+    { id: "tilt",       title: tKyc(KYC_STEP_TITLES, "tilt", "Card Thickness Check") },
+    { id: "liveness",   title: tKyc(KYC_STEP_TITLES, "liveness", "Selfie and Liveness") },
+    { id: "review",     title: tKyc(KYC_STEP_TITLES, "review", "Review") },
+    { id: "submit",     title: tKyc(KYC_STEP_TITLES, "submit", "Submit") },
+    { id: "processing", title: tKyc(KYC_STEP_TITLES, "processing", "Processing") },
+    { id: "complete",   title: tKyc(KYC_STEP_TITLES, "complete", "Complete") },
 ];
 
 const stepScreens = {
@@ -48,17 +197,17 @@ const stepScreens = {
 };
 
 const documentOptions = [
-    { id:"driver_license", label:"Driver License",   citizenship:["japanese"],         needsBack:true,  guide:"Please prepare your driver license (front and back)." },
-    { id:"my_number",      label:"My Number Card",   citizenship:["japanese"],         needsBack:true,  guide:"Please prepare your My Number card (front and back)." },
-    { id:"passport",       label:"Passport",         citizenship:["japanese","foreign"],needsBack:false, guide:"Please prepare your passport photo page." },
-    { id:"residence_card", label:"Residence Card",   citizenship:["foreign"],          needsBack:true,  guide:"Please prepare your residence card (front and back)." },
+    { id:"driver_license", label:tKyc(KYC_DOCUMENTS, "driver_license", "Driver License"),   citizenship:["japanese"],         needsBack:true,  guide:tKyc(KYC_DOCUMENT_GUIDES, "driver_license", "Please prepare your driver license (front and back).") },
+    { id:"my_number",      label:tKyc(KYC_DOCUMENTS, "my_number", "My Number Card"),         citizenship:["japanese"],         needsBack:true,  guide:tKyc(KYC_DOCUMENT_GUIDES, "my_number", "Please prepare your My Number card (front and back).") },
+    { id:"passport",       label:tKyc(KYC_DOCUMENTS, "passport", "Passport"),                 citizenship:["japanese","foreign"],needsBack:false, guide:tKyc(KYC_DOCUMENT_GUIDES, "passport", "Please prepare your passport photo page.") },
+    { id:"residence_card", label:tKyc(KYC_DOCUMENTS, "residence_card", "Residence Card"),     citizenship:["foreign"],          needsBack:true,  guide:tKyc(KYC_DOCUMENT_GUIDES, "residence_card", "Please prepare your residence card (front and back).") },
 ];
 
 const documentFields = {
-    driver_license:  [ { id:"license_number", label:"License number", type:"text" }, { id:"issue_date",  label:"Issue date",  type:"date" }, { id:"expiry_date", label:"Expiry date", type:"date" } ],
-    my_number:       [ { id:"my_number",      label:"My Number",      type:"text" } ],
-    passport:        [ { id:"passport_number",label:"Passport number",type:"text" }, { id:"passport_expiry",label:"Passport expiry",type:"date" } ],
-    residence_card:  [ { id:"residence_status",label:"Residence status",type:"text" }, { id:"residence_card_number",label:"Residence card number",type:"text" }, { id:"residence_card_expiry",label:"Residence card expiry",type:"date" } ],
+    driver_license:  [ { id:"license_number", label:tKyc(KYC_FIELD_LABELS, "license_number", "License number"), type:"text" }, { id:"issue_date",  label:tKyc(KYC_FIELD_LABELS, "issue_date", "Issue date"),  type:"date" }, { id:"expiry_date", label:tKyc(KYC_FIELD_LABELS, "expiry_date", "Expiry date"), type:"date" } ],
+    my_number:       [ { id:"my_number",      label:tKyc(KYC_FIELD_LABELS, "my_number", "My Number"),      type:"text" } ],
+    passport:        [ { id:"passport_number",label:tKyc(KYC_FIELD_LABELS, "passport_number", "Passport number"),type:"text" }, { id:"passport_expiry",label:tKyc(KYC_FIELD_LABELS, "passport_expiry", "Passport expiry"),type:"date" } ],
+    residence_card:  [ { id:"residence_status",label:tKyc(KYC_FIELD_LABELS, "residence_status", "Residence status"),type:"text" }, { id:"residence_card_number",label:tKyc(KYC_FIELD_LABELS, "residence_card_number", "Residence card number"),type:"text" }, { id:"residence_card_expiry",label:tKyc(KYC_FIELD_LABELS, "residence_card_expiry", "Residence card expiry"),type:"date" } ],
 };
 
 const flowData = {
@@ -83,9 +232,9 @@ let confirmUnlockAt = 0;
 const TILT_DIRECTIONS = [
     {
         id: "tilt_top",
-        label: "Thickness check: Top edge visible",
-        instruction: "Tilt card backward — show TOP edge",
-        hint: "Hold the card and tilt the top edge away from you so the thickness is visible.",
+        label: tKyc(KYC_CAPTURE_TEXT, "tiltStepTitle", "Thickness check: Top edge visible"),
+        instruction: tKyc(KYC_CAPTURE_TEXT, "tiltInstructionTop", "Tilt card backward — show TOP edge"),
+        hint: tKyc(KYC_CAPTURE_TEXT, "tiltHintTop", "Hold the card and tilt the top edge away from you so the thickness is visible."),
         check: ({ beta }) => beta >= -45 && beta <= -15,
     },
 ];
@@ -118,7 +267,7 @@ function updateProgress() {
     const label   = document.getElementById("stepLabel");
     const title   = document.getElementById("stepTitle");
     if (prog)  prog.style.width  = `${percent}%`;
-    if (label) label.textContent = `Step ${currentStepIndex + 1} of ${total}`;
+    if (label) label.textContent = `${tKyc(KYC_LABELS, "step", "Step")} ${currentStepIndex + 1} ${tKyc(KYC_LABELS, "of", "of")} ${total}`;
     if (title) title.textContent = flowSteps[currentStepIndex].title;
 }
 
@@ -139,11 +288,11 @@ async function startSession() {
     try {
         const res  = await fetch("/session/start", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ tenant_slug:TENANT_SLUG, customer_id:CUSTOMER_ID }) });
         const data = await res.json();
-        if (!data.success) { showStatus("error","Failed to start session."); return false; }
+        if (!data.success) { showStatus("error",tKyc(KYC_STATUS_TEXT, "failedStartSession", "Failed to start session.")); return false; }
         SESSION_ID = data.session_id;
         return true;
     } catch (err) {
-        showStatus("error", `Session start failed: ${err.message}`);
+        showStatus("error", `${tKyc(KYC_STATUS_TEXT, "sessionStartFailedPrefix", "Session start failed:")} ${err.message}`);
         return false;
     }
 }
@@ -184,11 +333,12 @@ function renderDocumentFields(docId) {
     if (!c) return;
     const fields = documentFields[docId] || [];
     c.innerHTML = fields.map(f => `<div><label class="text-xs font-semibold text-slate-600">${f.label}</label><input id="doc_${f.id}" type="${f.type}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"></div>`).join("");
+    applySmallScreenDateInputFallback(c);
 }
 
 function savePersonalInfo() {
     const fullName = document.getElementById("fullName").value.trim();
-    if (!fullName) { showStatus("error","Full name is required."); return; }
+    if (!fullName) { showStatus("error",tKyc(KYC_STATUS_TEXT, "fullNameRequired", "Full name is required.")); return; }
     flowData.customer.full_name       = fullName;
     flowData.customer.full_name_kana  = document.getElementById("fullNameKana").value.trim();
     flowData.customer.date_of_birth   = document.getElementById("dateOfBirth").value;
@@ -498,11 +648,11 @@ function updateCaptureUI() {
             title.textContent = `${tilt.label}  ${dots}`;
         }
         if (subtitle)      subtitle.textContent   = tilt.hint;
-        if (modeLabel)     modeLabel.textContent  = "Camera Mode1";
-        if (liveTitle)     liveTitle.textContent  = "Tilt";
-        if (liveSub)       liveSub.textContent    = "Thickness at the top of the card.";
-        if (warnText)      warnText.textContent   = "Align your card with the guide and show top edge.";
-        if (instructions)  { instructions.textContent = "Tilt backward — show top edge."; instructions.classList.remove("success","warning"); }
+        if (modeLabel)     modeLabel.textContent  = tKyc(KYC_CAPTURE_TEXT, "cameraMode", "Camera Mode1");
+        if (liveTitle)     liveTitle.textContent  = tKyc(KYC_CAPTURE_TEXT, "tiltLiveTitle", "Tilt");
+        if (liveSub)       liveSub.textContent    = tKyc(KYC_CAPTURE_TEXT, "tiltLiveSubtitle", "Thickness at the top of the card.");
+        if (warnText)      warnText.textContent   = tKyc(KYC_CAPTURE_TEXT, "tiltWarn", "Align your card with the guide and show top edge.");
+        if (instructions)  { instructions.textContent = tKyc(KYC_CAPTURE_TEXT, "tiltInstructionTopLower", "Tilt backward — show top edge."); instructions.classList.remove("success","warning"); }
 
         if (card) {
             card.classList.add("mode-tilt");
@@ -527,13 +677,13 @@ function updateCaptureUI() {
     /* ══════════════════════ SELFIE ══════════════════════ */
     if (captureStep === "selfie") {
         if (cameraContainer) cameraContainer.classList.add("selfie-mode");
-        if (title)        title.textContent      = "Capture your selfie";
-        if (subtitle)     subtitle.textContent   = "Make sure your face is centered and clear.";
-        if (instructions) instructions.textContent = "Position your face within the frame";
-        if (modeLabel)    modeLabel.textContent  = "Selfie mode";
-        if (liveTitle)    liveTitle.textContent  = "Capture selfie";
-        if (liveSub)      liveSub.textContent    = "Center your face and hold still.";
-        if (warnText)     warnText.textContent   = "Use good lighting and avoid blur.";
+        if (title)        title.textContent      = tKyc(KYC_CAPTURE_TEXT, "selfieTitle", "Capture your selfie");
+        if (subtitle)     subtitle.textContent   = tKyc(KYC_CAPTURE_TEXT, "selfieSubtitle", "Make sure your face is centered and clear.");
+        if (instructions) instructions.textContent = tKyc(KYC_CAPTURE_TEXT, "selfieInstruction", "Position your face within the frame");
+        if (modeLabel)    modeLabel.textContent  = tKyc(KYC_CAPTURE_TEXT, "selfieModeLabel", "Selfie mode");
+        if (liveTitle)    liveTitle.textContent  = tKyc(KYC_CAPTURE_TEXT, "selfieLiveTitle", "Capture selfie");
+        if (liveSub)      liveSub.textContent    = tKyc(KYC_CAPTURE_TEXT, "selfieLiveSubtitle", "Center your face and hold still.");
+        if (warnText)     warnText.textContent   = tKyc(KYC_CAPTURE_TEXT, "selfieWarn", "Use good lighting and avoid blur.");
         if (card)         card.classList.add("mode-selfie");
         if (guideBox)     {
             guideBox.style.display = "";
@@ -550,13 +700,13 @@ function updateCaptureUI() {
     /* ══════════════════════ FRONT / BACK ══════════════════════ */
     const isBack = captureStep === "back";
     if (cameraContainer) cameraContainer.classList.add("document-mode");
-    if (title)        title.textContent      = isBack ? "Capture the back of your document" : "Capture the front of your document";
-    if (subtitle)     subtitle.textContent   = isBack ? "Make sure the back side is clear and readable." : "Make sure all details are clear and readable.";
-    if (instructions) instructions.textContent = isBack ? "Position the back within the frame" : "Position the front within the frame";
-    if (modeLabel)    modeLabel.textContent  = "Document mode";
-    if (liveTitle)    liveTitle.textContent  = isBack ? "Capture back side" : "Capture front side";
-    if (liveSub)      liveSub.textContent    = isBack ? "Place the back of your ID clearly." : "Place the front of your ID clearly.";
-    if (warnText)     warnText.textContent   = "Avoid glare and keep all corners visible.";
+    if (title)        title.textContent      = isBack ? tKyc(KYC_CAPTURE_TEXT, "docBackTitle", "Capture the back of your document") : tKyc(KYC_CAPTURE_TEXT, "docFrontTitle", "Capture the front of your document");
+    if (subtitle)     subtitle.textContent   = isBack ? tKyc(KYC_CAPTURE_TEXT, "docBackSubtitle", "Make sure the back side is clear and readable.") : tKyc(KYC_CAPTURE_TEXT, "docFrontSubtitle", "Make sure all details are clear and readable.");
+    if (instructions) instructions.textContent = isBack ? tKyc(KYC_CAPTURE_TEXT, "docBackInstruction", "Position the back within the frame") : tKyc(KYC_CAPTURE_TEXT, "docFrontInstruction", "Position the front within the frame");
+    if (modeLabel)    modeLabel.textContent  = tKyc(KYC_CAPTURE_TEXT, "documentModeLabel", "Document mode");
+    if (liveTitle)    liveTitle.textContent  = isBack ? tKyc(KYC_CAPTURE_TEXT, "docBackLiveTitle", "Capture back side") : tKyc(KYC_CAPTURE_TEXT, "docFrontLiveTitle", "Capture front side");
+    if (liveSub)      liveSub.textContent    = isBack ? tKyc(KYC_CAPTURE_TEXT, "docBackLiveSubtitle", "Place the back of your ID clearly.") : tKyc(KYC_CAPTURE_TEXT, "docFrontLiveSubtitle", "Place the front of your ID clearly.");
+    if (warnText)     warnText.textContent   = tKyc(KYC_CAPTURE_TEXT, "docWarn", "Avoid glare and keep all corners visible.");
     if (guideBox)     {
         guideBox.style.display = "";
         guideBox.classList.remove("selfie","tilt");
@@ -643,7 +793,7 @@ async function startCamera() {
             video.onloadedmetadata = () => { clearTimeout(t); video.play().then(res).catch(rej); };
         });
     } catch (e) {
-        showStatus("error", `Camera failed to start: ${e.message}`);
+        showStatus("error", `${tKyc(KYC_CAMERA_TEXT, "cameraFailedStart", "Camera failed to start:")} ${e.message}`);
         stopCamera();
         return;
     }
@@ -663,18 +813,18 @@ async function getCameraPermissionState() {
 }
 
 function getCameraErrorMessage(error, permissionState = null) {
-    if (!error) return "Camera access failed.";
-    if (!window.isSecureContext) return "Camera requires a secure page (HTTPS).";
+    if (!error) return tKyc(KYC_CAMERA_TEXT, "cameraAccessFailed", "Camera access failed.");
+    if (!window.isSecureContext) return tKyc(KYC_CAMERA_TEXT, "cameraNeedsHttps", "Camera requires a secure page (HTTPS).");
     if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
         if (permissionState === "granted") {
-            return "Camera is blocked by the current tab/session. Close other camera screens and try again.";
+            return tKyc(KYC_CAMERA_TEXT, "cameraBlockedSession", "Camera is blocked by the current tab/session. Close other camera screens and try again.");
         }
-        return "Camera permission denied. Please allow camera access in your browser settings.";
+        return tKyc(KYC_CAMERA_TEXT, "cameraPermissionDenied", "Camera permission denied. Please allow camera access in your browser settings.");
     }
-    if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") return "No camera found on your device.";
-    if (error.name === "NotReadableError" || error.name === "TrackStartError") return "Camera is already in use by another application.";
-    if (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError") return "Camera constraints are not supported on this device. Please try again.";
-    return `Camera error: ${error.message || "Unknown error."}`;
+    if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") return tKyc(KYC_CAMERA_TEXT, "noCameraFound", "No camera found on your device.");
+    if (error.name === "NotReadableError" || error.name === "TrackStartError") return tKyc(KYC_CAMERA_TEXT, "cameraInUse", "Camera is already in use by another application.");
+    if (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError") return tKyc(KYC_CAMERA_TEXT, "cameraConstraintsUnsupported", "Camera constraints are not supported on this device. Please try again.");
+    return `${tKyc(KYC_CAMERA_TEXT, "cameraErrorPrefix", "Camera error:")} ${error.message || tKyc(KYC_CAMERA_TEXT, "unknownError", "Unknown error.")}`;
 }
 
 function setupCaptureButton() {
@@ -738,16 +888,16 @@ async function confirmPhoto() {
     if (!document.getElementById("previewContainer").classList.contains("active")) return;
     if (Date.now() - lastCaptureAt < 700) return;
     if (Date.now() < confirmUnlockAt) return;
-    if (!SESSION_ID) { showStatus("error","Missing session. Please restart verification."); return; }
+    if (!SESSION_ID) { showStatus("error",tKyc(KYC_STATUS_TEXT, "missingSessionRestart", "Missing session. Please restart verification.")); return; }
 
     const imageData  = capturedImages[captureStep];
     const uploadType = captureStep === "tilt" ? currentTiltDirection().id : captureStep;
-    showStatus("loading","Uploading image...");
+    showStatus("loading",tKyc(KYC_STATUS_TEXT, "uploadingImage", "Uploading image..."));
 
     try {
         const res  = await fetch("/capture/", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ session_id:SESSION_ID, tenant_slug:TENANT_SLUG, image:imageData, type:uploadType }) });
         const data = await res.json();
-        if (!data.success) { showStatus("error", data.error || "Capture failed."); return; }
+        if (!data.success) { showStatus("error", data.error || tKyc(KYC_STATUS_TEXT, "captureFailed", "Capture failed.")); return; }
 
         if (captureStep === "tilt") capturedTiltPaths.push(data.filename);
         else capturedPaths[captureStep] = data.filename;
@@ -771,7 +921,7 @@ async function confirmPhoto() {
 
         if (captureStep === "tilt") {
             tiltCaptureIndex++;
-            showStatus("success",`Tilt ${tiltCaptureIndex}/${TILT_FRAME_TARGET} captured.`);
+            showStatus("success",`${tKyc(KYC_STATUS_TEXT, "tiltCapturedPrefix", "Tilt")} ${tiltCaptureIndex}/${TILT_FRAME_TARGET} ${tKyc(KYC_STATUS_TEXT, "capturedSuffix", "captured.")}`);
             await new Promise(r => setTimeout(r, 700));
             if (tiltCaptureIndex < TILT_FRAME_TARGET) {
                 hideStatus();
@@ -789,7 +939,7 @@ async function confirmPhoto() {
 
         if (captureStep === "selfie") { stopCamera(); renderReview(); setStep(10); }
 
-    } catch (e) { showStatus("error",`Upload failed: ${e.message}`); }
+    } catch (e) { showStatus("error",`${tKyc(KYC_STATUS_TEXT, "uploadFailedPrefix", "Upload failed:")} ${e.message}`); }
 }
 
 function stopCamera() {
@@ -828,16 +978,16 @@ function startTiltCapture(){ goToTiltCapture(); }
 
 async function startLivenessDetection() {
     if (capturedTiltPaths.length < TILT_FRAME_TARGET) {
-        showStatus("error",`Tilt check required. Please capture ${TILT_FRAME_TARGET} tilt photos first.`);
+        showStatus("error",`${tKyc(KYC_STATUS_TEXT, "tiltCheckRequiredPrefix", "Tilt check required. Please capture")} ${TILT_FRAME_TARGET} ${tKyc(KYC_STATUS_TEXT, "tiltPhotosFirstSuffix", "tilt photos first.")}`);
         setTimeout(() => goToTiltGuide(), 900);
         return;
     }
-    if (!SESSION_ID) { showStatus("error","Missing session. Please restart verification."); return; }
+    if (!SESSION_ID) { showStatus("error",tKyc(KYC_STATUS_TEXT, "missingSessionRestart", "Missing session. Please restart verification.")); return; }
 
     const w = window.open(`/liveness?session_id=${encodeURIComponent(SESSION_ID)}`,"livenessWindow","width=520,height=820");
-    if (!w) { showStatus("error","Popup blocked. Allow popups for this site and try again."); return; }
+    if (!w) { showStatus("error",tKyc(KYC_STATUS_TEXT, "popupBlocked", "Popup blocked. Allow popups for this site and try again.")); return; }
 
-    showStatus("loading","Starting liveness detection...");
+    showStatus("loading",tKyc(KYC_STATUS_TEXT, "startingLiveness", "Starting liveness detection..."));
     try { await fetch("/start-liveness/", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ session_id:SESSION_ID, tenant_slug:TENANT_SLUG }) }); } catch(e){}
 
     if (livenessListenerAttached) return;
@@ -850,13 +1000,13 @@ async function startLivenessDetection() {
             await fetch("/liveness-result", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ ...result, tenant_slug:TENANT_SLUG, customer_id:CUSTOMER_ID }) });
             if (result.verified) {
                 livenessCompleted = true;
-                showStatus("success",`Liveness verified. Confidence: ${result.confidence}%`);
+                showStatus("success",`${tKyc(KYC_STATUS_TEXT, "livenessVerifiedConfidence", "Liveness verified. Confidence:")} ${result.confidence}%`);
                 setTimeout(() => proceedAfterLivenessWhenVisible(), 900);
             } else {
-                showStatus("error","Liveness verification failed. Please try again.");
+                showStatus("error",tKyc(KYC_STATUS_TEXT, "livenessVerificationFailed", "Liveness verification failed. Please try again."));
                 setTimeout(() => hideStatus(), 2000);
             }
-        } catch(e) { showStatus("error","Failed to save liveness result."); }
+        } catch(e) { showStatus("error",tKyc(KYC_STATUS_TEXT, "failedSaveLiveness", "Failed to save liveness result.")); }
         finally { livenessListenerAttached = false; }
     }, { once:true });
 }
@@ -868,7 +1018,7 @@ function proceedAfterLivenessWhenVisible() {
     }
     if (waitingForVisibleSelfieStart) return;
     waitingForVisibleSelfieStart = true;
-    showStatus("info","Return to this verification tab to continue selfie capture.");
+    showStatus("info",tKyc(KYC_STATUS_TEXT, "returnToVerificationTab", "Return to this verification tab to continue selfie capture."));
     const onVisibility = () => {
         if (document.visibilityState !== "visible") return;
         document.removeEventListener("visibilitychange", onVisibility);
@@ -880,11 +1030,11 @@ function proceedAfterLivenessWhenVisible() {
 
 function skipLiveness() {
     if (capturedTiltPaths.length < TILT_FRAME_TARGET) {
-        showStatus("error",`Tilt check required. Please capture ${TILT_FRAME_TARGET} tilt photos first.`);
+        showStatus("error",`${tKyc(KYC_STATUS_TEXT, "tiltCheckRequiredPrefix", "Tilt check required. Please capture")} ${TILT_FRAME_TARGET} ${tKyc(KYC_STATUS_TEXT, "tiltPhotosFirstSuffix", "tilt photos first.")}`);
         setTimeout(() => goToTiltGuide(), 900);
         return;
     }
-    if (confirm("Skipping liveness detection may reduce security. Continue anyway?")) {
+    if (confirm(tKyc(KYC_MISC_TEXT, "confirmSkipLiveness", "Skipping liveness detection may reduce security. Continue anyway?"))) {
         livenessAutoStarted = true;
         livenessCompleted = false;
         proceedAfterLiveness();
@@ -926,12 +1076,12 @@ async function startOrientationGuidance() {
         const el    = document.getElementById("instructions");
 
         if (!cardDetected) {
-            setTiltInstruction("Hold card clearly in the center, then tilt as instructed.", false);
+            setTiltInstruction(tKyc(KYC_CAPTURE_TEXT, "holdCardCenterTilt", "Hold card clearly in the center, then tilt as instructed."), false);
             if (el && !IS_PHONE) el.classList.add("warning");
             return;
         }
         const good = tilt.check({ beta, gamma });
-        if (good) { setTiltInstruction(IS_PHONE ? "Angle looks good. Tap Snap." : "Good angle detected. Tap Snap now.", true); return; }
+        if (good) { setTiltInstruction(IS_PHONE ? tKyc(KYC_CAPTURE_TEXT, "angleLooksGoodTapSnap", "Angle looks good. Tap Snap.") : tKyc(KYC_CAPTURE_TEXT, "goodAngleDetectedTapSnap", "Good angle detected. Tap Snap now."), true); return; }
         setTiltInstruction(tilt.instruction, false);
         if (el && !IS_PHONE) el.classList.add("warning");
     };
@@ -977,17 +1127,17 @@ function renderReview() {
     if (!el) return;
     const doc = documentOptions.find(o => o.id === flowData.document_type);
     el.innerHTML = `<div class="space-y-3">
-        <div><strong>Citizenship:</strong> ${flowData.citizenship_type||""}</div>
-        <div><strong>Document:</strong> ${doc?.label||flowData.document_type||""}</div>
-        <div><strong>Full name:</strong> ${flowData.customer.full_name||""}</div>
-        <div><strong>Date of birth:</strong> ${flowData.customer.date_of_birth||""}</div>
-        <div><strong>Nationality:</strong> ${flowData.customer.nationality||""}</div>
-        <div><strong>Address:</strong> ${flowData.customer.prefecture||""} ${flowData.customer.city||""} ${flowData.customer.street_address||""}</div>
-        <div><strong>Contact:</strong> ${flowData.customer.email||""} ${flowData.customer.phone||""}</div>
-        <div><strong>Document images:</strong> ${capturedPaths.front?"Front":""} ${capturedPaths.back?"Back":""}</div>
-        <div><strong>Tilt frames:</strong> ${capturedTiltPaths.length}/${TILT_FRAME_TARGET}</div>
-        <div><strong>Selfie:</strong> ${capturedPaths.selfie?"Captured":"Pending"}</div>
-        <div><strong>Liveness:</strong> ${livenessCompleted?"Completed":"Skipped"}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "citizenship", "Citizenship")}:</strong> ${flowData.citizenship_type === "japanese" ? tKyc(KYC_REVIEW_TEXT, "citizenshipJapanese", "Japanese") : flowData.citizenship_type === "foreign" ? tKyc(KYC_REVIEW_TEXT, "citizenshipForeign", "Foreign") : (flowData.citizenship_type||"")}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "document", "Document")}:</strong> ${doc?.label||flowData.document_type||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "fullName", "Full name")}:</strong> ${flowData.customer.full_name||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "dateOfBirth", "Date of birth")}:</strong> ${flowData.customer.date_of_birth||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "nationality", "Nationality")}:</strong> ${flowData.customer.nationality||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "address", "Address")}:</strong> ${flowData.customer.prefecture||""} ${flowData.customer.city||""} ${flowData.customer.street_address||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "contact", "Contact")}:</strong> ${flowData.customer.email||""} ${flowData.customer.phone||""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "documentImages", "Document images")}:</strong> ${capturedPaths.front ? tKyc(KYC_REVIEW_TEXT, "front", "Front") : ""} ${capturedPaths.back ? tKyc(KYC_REVIEW_TEXT, "back", "Back") : ""}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "tiltFrames", "Tilt frames")}:</strong> ${capturedTiltPaths.length}/${TILT_FRAME_TARGET}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "selfie", "Selfie")}:</strong> ${capturedPaths.selfie ? tKyc(KYC_REVIEW_TEXT, "captured", "Captured") : tKyc(KYC_REVIEW_TEXT, "pending", "Pending")}</div>
+        <div><strong>${tKyc(KYC_REVIEW_TEXT, "liveness", "Liveness")}:</strong> ${livenessCompleted ? tKyc(KYC_REVIEW_TEXT, "completed", "Completed") : tKyc(KYC_REVIEW_TEXT, "skipped", "Skipped")}</div>
     </div>`;
 }
 
@@ -996,8 +1146,8 @@ async function submitFlow() {
     try {
         const r    = await fetch("/session/submit", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ session_id:SESSION_ID, tenant_slug:TENANT_SLUG, customer:flowData.customer, document:flowData.document }) });
         const data = await r.json();
-        if (!data.success) { showStatus("error", data.error||"Submission failed."); return; }
-    } catch(e) { showStatus("error",`Submission failed: ${e.message}`); return; }
+        if (!data.success) { showStatus("error", data.error||tKyc(KYC_STATUS_TEXT, "submissionFailed", "Submission failed.")); return; }
+    } catch(e) { showStatus("error",`${tKyc(KYC_STATUS_TEXT, "submissionFailedPrefix", "Submission failed:")} ${e.message}`); return; }
     setStep(12);
     await verifyIdentity();
 }
@@ -1018,20 +1168,20 @@ function showCompletion(data) {
 
     if (data && data.success) {
         icon.textContent    = "OK";
-        titleEl.textContent = "Submission received";
-        msgEl.textContent   = "Your verification is submitted. Our team will review it soon.";
+        titleEl.textContent = tKyc(KYC_COMPLETION_TEXT, "submissionReceived", "Submission received");
+        msgEl.textContent   = tKyc(KYC_COMPLETION_TEXT, "submittedReviewSoon", "Your verification is submitted. Our team will review it soon.");
         detEl.innerHTML = `<div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-700">
-            <div><strong>AI check:</strong> ${data.verified?"Verified":"Needs review"}</div>
-            <div><strong>Confidence:</strong> ${data.confidence?data.confidence.toFixed(1)+"%":"N/A"}</div>
-            <div><strong>Liveness:</strong> ${livenessCompleted?"Completed":"Skipped"}</div>
-            <div><strong>Detected card:</strong> ${data.detected_card?.label||flowData.document_type||"N/A"}</div>
-            <div><strong>Card physical check:</strong> ${data.physical_card_check?.verified?"Passed":"Needs review"}</div>
-            <div><strong>Physical score:</strong> ${data.physical_card_check?.physical_card_score?data.physical_card_check.physical_card_score.toFixed(1)+"%":"N/A"}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "aiCheck", "AI check")}:</strong> ${data.verified?tKyc(KYC_COMPLETION_TEXT, "verified", "Verified"):tKyc(KYC_COMPLETION_TEXT, "needsReview", "Needs review")}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "confidence", "Confidence")}:</strong> ${data.confidence?data.confidence.toFixed(1)+"%":tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "liveness", "Liveness")}:</strong> ${livenessCompleted?tKyc(KYC_COMPLETION_TEXT, "completed", "Completed"):tKyc(KYC_COMPLETION_TEXT, "skipped", "Skipped")}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "detectedCard", "Detected card")}:</strong> ${data.detected_card?.label||flowData.document_type||tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "cardPhysicalCheck", "Card physical check")}:</strong> ${data.physical_card_check?.verified?tKyc(KYC_COMPLETION_TEXT, "passed", "Passed"):tKyc(KYC_COMPLETION_TEXT, "needsReview", "Needs review")}</div>
+            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "physicalScore", "Physical score")}:</strong> ${data.physical_card_check?.physical_card_score?data.physical_card_check.physical_card_score.toFixed(1)+"%":tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
         </div>`;
     } else {
-        icon.textContent    = "Review";
-        titleEl.textContent = "Submission received";
-        msgEl.textContent   = "We received your verification. Our team will review it manually.";
+        icon.textContent    = tKyc(KYC_COMPLETION_TEXT, "review", "Review");
+        titleEl.textContent = tKyc(KYC_COMPLETION_TEXT, "submissionReceived", "Submission received");
+        msgEl.textContent   = tKyc(KYC_COMPLETION_TEXT, "receivedManualReview", "We received your verification. Our team will review it manually.");
         detEl.innerHTML     = "";
     }
     setStep(13);
@@ -1047,7 +1197,9 @@ function startOver()  { location.reload(); }
 
 window.addEventListener("beforeunload", () => stopCamera());
 window.addEventListener("DOMContentLoaded", async () => {
-    setStep(0);
+    applySmallScreenDateInputFallback(document);
+    const restored = restoreKycFlowAfterLanguageSwitch();
+    if (!restored) setStep(0);
     if (DEBUG_MODE === "liveness") {
         await enterLivenessDebugMode();
     }
@@ -1055,11 +1207,11 @@ window.addEventListener("DOMContentLoaded", async () => {
 
 async function enterLivenessDebugMode() {
     if (!TENANT_SLUG || !CUSTOMER_ID) {
-        showStatus("error", "Debug liveness mode requires tenant_slug and customer_id.");
+        showStatus("error", tKyc(KYC_MISC_TEXT, "debugNeedsTenantCustomer", "Debug liveness mode requires tenant_slug and customer_id."));
         return;
     }
 
-    showStatus("loading", "Starting temporary liveness debug mode...");
+    showStatus("loading", tKyc(KYC_MISC_TEXT, "startingTempLivenessDebug", "Starting temporary liveness debug mode..."));
     const ok = await startSession();
     if (!ok) return;
 

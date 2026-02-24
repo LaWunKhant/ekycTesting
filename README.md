@@ -110,6 +110,84 @@ Security note: move hardcoded secrets/passwords to environment variables for rea
 
 ---
 
+## 5.1) Internationalization (i18n/l10n) - English + Japanese
+
+The project is configured for English (`en`, default) and Japanese (`ja`).
+
+### Current i18n setup (already added)
+- `USE_I18N = True`
+- `LANGUAGE_CODE = "en"`
+- `LANGUAGES = [("en", "English"), ("ja", "日本語")]`
+- `LOCALE_PATHS = [BASE_DIR / "locale"]`
+- `django.middleware.locale.LocaleMiddleware` enabled (after session middleware)
+- Django language endpoint enabled at `/i18n/` (includes `/i18n/setlang/`)
+
+Key files:
+- `myproject/settings.py`
+- `myproject/urls.py`
+- `locale/ja/LC_MESSAGES/django.po`
+- `locale/ja/LC_MESSAGES/django.mo` (compiled)
+
+### How to mark strings for translation (templates)
+In Django templates:
+```django
+{% load i18n %}
+<h2>{% trans "Capture the front of your document" %}</h2>
+<p>{% trans "Tilt backward so the TOP edge is visible." %}</p>
+```
+
+For page language attribute:
+```django
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+```
+
+### How to update/add Japanese translations
+1. Mark new UI strings with `{% trans %}` (or `{% blocktrans %}` for longer/variable text).
+2. Regenerate/update the message file:
+```bash
+source .venv/bin/activate
+python manage.py makemessages -l ja
+```
+3. Edit Japanese translations in:
+- `locale/ja/LC_MESSAGES/django.po`
+4. Compile translations:
+```bash
+python manage.py compilemessages -l ja
+```
+5. Restart Django server and refresh the browser.
+
+Notes:
+- `compilemessages` requires GNU gettext (`msgfmt`). On macOS: `brew install gettext` (and ensure it is on PATH).
+- Only strings wrapped in translation tags/functions will be translated.
+
+### How to switch language at runtime
+Option A (automatic):
+- Browser `Accept-Language: ja` will render Japanese when `LocaleMiddleware` is active.
+
+Option B (manual, Django standard endpoint):
+- POST to `/i18n/setlang/` with `language=ja` or `language=en`
+
+Example form:
+```django
+{% load i18n %}
+<form action="{% url 'set_language' %}" method="post">
+  {% csrf_token %}
+  <input name="next" type="hidden" value="{{ request.path }}">
+  <button type="submit" name="language" value="en">English</button>
+  <button type="submit" name="language" value="ja">日本語</button>
+</form>
+```
+
+### JavaScript text (important)
+`kyc/static/js/liveness.js` now reads translated strings injected from `kyc/templates/kyc/liveness.html` via `window.LIVENESS_I18N`.
+
+If you localize more JS-heavy pages (for example `kyc/static/js/main.js`), use one of these patterns:
+- Inject translated strings from the Django template into `window.<...>`
+- Or use Django JS i18n (`gettext`, `JavaScriptCatalog`) if you want direct translation calls in JS
+
+---
+
 ## 6) Start Order (Important)
 Always start services in this order:
 
