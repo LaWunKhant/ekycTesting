@@ -250,7 +250,7 @@ ngrok http 8000
 Do **not** run `http ngrok 8000`.
 Correct command is `ngrok http 8000`.
 
-4. Update `PUBLIC_BASE_URL` in `settings.py` to the new ngrok URL
+4. Update `PUBLIC_BASE_URL` in `.env` to the new ngrok URL (or export it in your shell)
 
 5. Open app:
 - Local: `http://127.0.0.1:8000`

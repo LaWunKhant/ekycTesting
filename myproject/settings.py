@@ -24,7 +24,7 @@ def load_dotenv_file(path):
 
 load_dotenv_file(BASE_DIR / ".env")
 
-SECRET_KEY = "dev-secret-key-change-me"
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = True
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app"]
 
@@ -137,10 +137,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Optional: set this to your ngrok URL for shareable links
-PUBLIC_BASE_URL = " https://5f0b-130-62-79-44.ngrok-free.app"
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip()
 
 # Looking to send emails in production? Check out our Email API/SMTP product!
-EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
-EMAIL_HOST_USER = '8482e1f1832286'
-EMAIL_HOST_PASSWORD = 'ffaace64349614'
-EMAIL_PORT = '2525'
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "2525"))
