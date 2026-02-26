@@ -137,7 +137,7 @@ These are already present, but verify before running:
   - `STATIC_URL = "/static/"`
   - `STATICFILES_DIRS = [BASE_DIR / "kyc" / "static"]`
   - `MEDIA_URL = "/media/"`
-  - `MEDIA_ROOT = BASE_DIR / "kyc" / "uploads"`
+  - `MEDIA_ROOT = BASE_DIR / "media"`
 
 Optional but recommended:
 - `PUBLIC_BASE_URL` for shareable links (set to your current ngrok URL)
@@ -145,6 +145,10 @@ Optional but recommended:
 - Email settings (`EMAIL_HOST`, `EMAIL_HOST_USER`, etc.) if sending mails
 
 Security note: move hardcoded secrets/passwords to environment variables for real deployments.
+
+Local runtime/artifact folders (recommended to keep out of Git):
+- `media/` for uploaded captures and derived images
+- `artifacts/` for large local model files (for example `artifacts/shape_predictor_68_face_landmarks.dat`)
 
 ---
 
@@ -297,7 +301,9 @@ Frontend flow in `kyc/static/js/main.js`:
 5. Selfie capture
 6. Submit (`/session/submit` then `/verify/submit/`)
 
-Captured images are uploaded through `/capture/` and stored under `MEDIA_ROOT`.
+Captured images are uploaded through `/capture/` and stored under `MEDIA_ROOT` (for example `media/front_...jpg`, `media/back_...jpg`).
+
+Derived face crops used during verification are also stored under `MEDIA_ROOT/extracted_faces/`.
 
 ---
 

@@ -1,3 +1,30 @@
-/kyc/kyc/uploads/
-/kyc/uploads/
 .env
+.env.local
+
+# Virtualenvs
+.venv/
+venv/
+
+# Python cache/build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+
+# IDE
+.idea/
+
+# Runtime/generated media (eKYC captures and derived images)
+/media/
+/kyc/uploads/
+/kyc/kyc/uploads/
+/documents/extracted_faces/
+
+# Local model/artifact binaries
+/artifacts/
+/shape_predictor_68_face_landmarks.dat
+
+# OS noise
+.DS_Store

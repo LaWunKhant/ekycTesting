@@ -1036,10 +1036,11 @@ def verify_kyc(request):
 
                 id_face = doc_image[y:y + h, x:x + w]
 
-                # Save ID face
-                os.makedirs('documents/extracted_faces', exist_ok=True)
+                # Save derived face crop under MEDIA_ROOT for consistent runtime storage.
+                extracted_faces_dir = os.path.join(settings.MEDIA_ROOT, "extracted_faces")
+                os.makedirs(extracted_faces_dir, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                id_face_path = f"documents/extracted_faces/id_face_{timestamp}.jpg"
+                id_face_path = os.path.join(extracted_faces_dir, f"id_face_{timestamp}.jpg")
                 cv2.imwrite(id_face_path, id_face, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
                 print(f"✓ Extracted ID face: {id_face_path}")
@@ -1153,7 +1154,16 @@ def _resolve_media_path(path_or_name):
         return path_or_name
     if os.path.exists(path_or_name):
         return path_or_name
-    return os.path.join(settings.MEDIA_ROOT, path_or_name)
+    media_path = os.path.join(settings.MEDIA_ROOT, path_or_name)
+    if os.path.exists(media_path):
+        return media_path
+
+    # Backward-compatibility during MEDIA_ROOT migration (legacy files in kyc/uploads).
+    legacy_media_path = os.path.join(settings.BASE_DIR, "kyc", "uploads", path_or_name)
+    if os.path.exists(legacy_media_path):
+        return legacy_media_path
+
+    return media_path
 
 
 def _media_url(filename):
