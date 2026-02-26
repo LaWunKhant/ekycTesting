@@ -6,14 +6,25 @@
   <component name="ChangeListManager">
     <list default="true" id="d10bc6ed-758c-4cf8-a531-d88178eb4c7f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/PythonProject.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/copilot.data.migration.ask2agent.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/kyc/forms.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/forms.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/kyc/management/commands/import_flask_db.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/kyc/templates/kyc/platform_dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/templates/kyc/platform_dashboard.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260205_033007.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260212_013703.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260212_073707.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260216_055545.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260216_064439.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260218_082156.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260219_011115.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/documents/extracted_faces/id_face_20260224_053238.jpg" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/kyc/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/kyc/views.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/myproject/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/myproject/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/shape_predictor_68_face_landmarks.dat" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,7 +43,7 @@
     </selectedModels>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="239" />
+    <option name="cachedIndexableFilesCount" value="238" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
