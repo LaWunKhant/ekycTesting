@@ -1,7 +1,8 @@
-# verification_service.py
 from dataclasses import dataclass
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 from deepface import DeepFace
+
 
 @dataclass
 class VerificationConfig:
@@ -19,6 +20,7 @@ class VerificationConfig:
                 "ArcFace": 60.0,
             }
 
+
 class FaceVerificationService:
     def __init__(self, config: VerificationConfig):
         self.cfg = config
@@ -33,7 +35,7 @@ class FaceVerificationService:
                 img2_path=selfie_path,
                 model_name=model,
                 distance_metric="cosine",
-                enforce_detection=False
+                enforce_detection=False,
             )
 
             distance = float(r["distance"])
@@ -41,12 +43,14 @@ class FaceVerificationService:
 
             passed = similarity >= self.cfg.min_similarity[model]
 
-            results.append({
-                "model": model,
-                "distance": distance,
-                "similarity": similarity,
-                "passed": passed,
-            })
+            results.append(
+                {
+                    "model": model,
+                    "distance": distance,
+                    "similarity": similarity,
+                    "passed": passed,
+                }
+            )
 
         sims = [x["similarity"] for x in results]
         avg_similarity = sum(sims) / len(sims)
@@ -59,7 +63,7 @@ class FaceVerificationService:
                 "reason": f"model_disagreement_range_{sim_range:.1f}",
                 "avg_similarity": avg_similarity,
                 "range": sim_range,
-                "models": results
+                "models": results,
             }
 
         # Require ArcFace pass (recommended)
@@ -71,7 +75,7 @@ class FaceVerificationService:
                     "reason": "arcface_below_min",
                     "avg_similarity": avg_similarity,
                     "range": sim_range,
-                    "models": results
+                    "models": results,
                 }
 
         # Ensemble pass rule: majority pass
@@ -83,5 +87,5 @@ class FaceVerificationService:
             "reason": "ok" if verified else "insufficient_model_passes",
             "avg_similarity": avg_similarity,
             "range": sim_range,
-            "models": results
+            "models": results,
         }
