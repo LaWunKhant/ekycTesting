@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from urllib.parse import urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,6 +21,13 @@ def load_dotenv_file(path):
         ):
             value = value[1:-1]
         os.environ.setdefault(key, value)
+
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 load_dotenv_file(BASE_DIR / ".env")
@@ -132,15 +140,31 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 AUTH_USER_MODEL = "accounts.User"
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.ngrok-free.app",
-]
-
 # Optional: set this to your ngrok URL for shareable links
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip()
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.ngrok-free.app",
+]
+if PUBLIC_BASE_URL.startswith(("http://", "https://")):
+    parsed_public_url = urlsplit(PUBLIC_BASE_URL)
+    if parsed_public_url.scheme and parsed_public_url.netloc:
+        CSRF_TRUSTED_ORIGINS.append(f"{parsed_public_url.scheme}://{parsed_public_url.netloc}")
+
+# Helps Django understand HTTPS when running behind ngrok/reverse proxies.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
 # Looking to send emails in production? Check out our Email API/SMTP product!
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
+)
 EMAIL_HOST = os.getenv("EMAIL_HOST", "")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "2525"))
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=EMAIL_PORT in {587, 2525})
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@localhost")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)

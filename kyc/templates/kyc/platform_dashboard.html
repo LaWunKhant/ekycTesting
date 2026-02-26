@@ -279,6 +279,26 @@
             const toggle = document.getElementById("theme-toggle");
             const label = document.querySelector("[data-theme-label]");
 
+            function getCookie(name) {
+                const prefix = `${name}=`;
+                const parts = document.cookie ? document.cookie.split(";") : [];
+                for (const rawPart of parts) {
+                    const part = rawPart.trim();
+                    if (part.startsWith(prefix)) {
+                        return decodeURIComponent(part.slice(prefix.length));
+                    }
+                }
+                return "";
+            }
+
+            function syncCsrfTokens() {
+                const csrfToken = getCookie("csrftoken");
+                if (!csrfToken) return;
+                document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((input) => {
+                    input.value = csrfToken;
+                });
+            }
+
             function setLabel() {
                 const isDark = document.documentElement.classList.contains("dark");
                 if (label) label.textContent = isDark ? "Dark" : "Light";
@@ -293,6 +313,18 @@
                 });
             }
 
+            document.querySelectorAll("form[method='post']").forEach((form) => {
+                form.addEventListener("submit", syncCsrfTokens);
+            });
+
+            window.addEventListener("focus", syncCsrfTokens);
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === "visible") {
+                    syncCsrfTokens();
+                }
+            });
+
+            syncCsrfTokens();
             setLabel();
         })();
     </script>

@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import authenticate, login
 from django.http import JsonResponse, HttpResponseForbidden
@@ -30,6 +31,7 @@ from .services.card_physical_check import analyze_card_physicality
 
 # Global variable to track liveness process
 liveness_process = None
+logger = logging.getLogger(__name__)
 
 
 def _generate_temp_password(length=12):
@@ -127,12 +129,12 @@ def platform_dashboard(request):
                 try:
                     _send_tenant_admin_temp_password_email(request, tenant, admin_user, password)
                     create_success = f"Tenant created. Temporary password emailed to {admin_email}."
-                except Exception:
+                except Exception as exc:
+                    logger.exception("Failed to send tenant admin email for tenant=%s email=%s", tenant.slug, admin_email)
                     created_admin_password = password
-                    create_error = (
-                        "Tenant created, but email could not be sent. "
-                        "Share the temporary password shown below manually."
-                    )
+                    create_error = "Tenant created, but email could not be sent. Share the temporary password shown below manually."
+                    if django_settings.DEBUG:
+                        create_error = f"{create_error} ({exc})"
         else:
             create_error = "Please correct the form errors."
 

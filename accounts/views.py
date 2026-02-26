@@ -1,11 +1,28 @@
 from django.contrib.auth import authenticate, login, logout
+from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from kyc.models import Tenant
 from .forms import UnifiedLoginForm, TenantStaffCreationForm, TenantSignupForm
 
 
+def _render_login(request, form, portal_title, portal_subtitle, invalid=False):
+    # Force a fresh token into the response context/cookie for this shared login page.
+    get_token(request)
+    context = {
+        "form": form,
+        "portal_title": portal_title,
+        "portal_subtitle": portal_subtitle,
+    }
+    if invalid:
+        context["invalid"] = True
+    return render(request, "registration/login.html", context)
+
+
+@never_cache
+@ensure_csrf_cookie
 @csrf_protect
 def login_view(request):
     host = request.get_host().split(":")[0]
@@ -31,33 +48,17 @@ def login_view(request):
 
             user = authenticate(request, username=username, password=password)
             if user is None:
-                return render(
-                    request,
-                    "registration/login.html",
-                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
-                )
+                return _render_login(request, form, portal_title, portal_subtitle, invalid=True)
 
             if subdomain == "admin" and not user.is_platform_admin():
-                return render(
-                    request,
-                    "registration/login.html",
-                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
-                )
+                return _render_login(request, form, portal_title, portal_subtitle, invalid=True)
 
             if subdomain and subdomain not in {"admin", "app"}:
                 if not user.tenant or user.tenant.slug != subdomain:
-                    return render(
-                        request,
-                        "registration/login.html",
-                        {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
-                    )
+                    return _render_login(request, form, portal_title, portal_subtitle, invalid=True)
 
             if user.tenant and (user.tenant.deleted_at or not user.tenant.is_active):
-                return render(
-                    request,
-                    "registration/login.html",
-                    {"form": form, "invalid": True, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
-                )
+                return _render_login(request, form, portal_title, portal_subtitle, invalid=True)
 
             login(request, user)
 
@@ -67,11 +68,7 @@ def login_view(request):
     else:
         form = UnifiedLoginForm(request)
 
-    return render(
-        request,
-        "registration/login.html",
-        {"form": form, "portal_title": portal_title, "portal_subtitle": portal_subtitle},
-    )
+    return _render_login(request, form, portal_title, portal_subtitle)
 
 
 def home_redirect(request):
