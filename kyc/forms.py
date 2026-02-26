@@ -4,7 +4,6 @@ from django.utils.text import slugify
 
 class TenantCreateForm(forms.Form):
     name = forms.CharField(max_length=255, label="Company name")
-    slug = forms.SlugField(max_length=80, required=False, label="Slug")
     admin_email = forms.EmailField(label="Admin email")
     admin_name = forms.CharField(max_length=255, label="Admin name")
     plan = forms.ChoiceField(
@@ -12,12 +11,6 @@ class TenantCreateForm(forms.Form):
         required=False,
     )
     is_active = forms.BooleanField(required=False, initial=True, label="Active")
-
-    def clean_slug(self):
-        slug = self.cleaned_data.get("slug")
-        if slug:
-            return slugify(slug)
-        return slug
 
 
 class TenantUpdateForm(forms.Form):

@@ -99,12 +99,17 @@
                 <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900/60 dark:shadow-slate-950/40">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold">Create New Tenant</h2>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Admins receive a temporary password</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Admins receive a temporary password by email</span>
                     </div>
 
                     {% if create_error %}
                         <div class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700/40 dark:bg-red-900/30 dark:text-red-200">
                             {{ create_error }}
+                        </div>
+                    {% endif %}
+                    {% if create_success %}
+                        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-900/30 dark:text-emerald-200">
+                            {{ create_success }}
                         </div>
                     {% endif %}
                     {% if created_admin_password %}
@@ -119,10 +124,6 @@
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Company name</label>
                             <input name="name" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-600 dark:text-slate-400">Slug (auto if blank)</label>
-                            <input name="slug" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
                         </div>
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Admin email</label>

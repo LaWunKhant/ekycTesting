@@ -20,6 +20,7 @@ from datetime import timedelta
 from django.conf import settings as django_settings
 from django.core.mail import send_mail
 from django.utils.text import slugify
+from django.utils.crypto import get_random_string
 from urllib.parse import urlencode
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -29,6 +30,29 @@ from .services.card_physical_check import analyze_card_physicality
 
 # Global variable to track liveness process
 liveness_process = None
+
+
+def _generate_temp_password(length=12):
+    # Alphanumeric temp password compatible with Django 6 (make_random_password removed).
+    return get_random_string(length)
+
+
+def _send_tenant_admin_temp_password_email(request, tenant, admin_user, temp_password):
+    login_url = request.build_absolute_uri(getattr(django_settings, "LOGIN_URL", "/accounts/login/"))
+    send_mail(
+        subject=f"Your {tenant.name} admin account",
+        message=(
+            f"Hello {admin_user.first_name or admin_user.email},\n\n"
+            f"Your tenant admin account for {tenant.name} has been created.\n\n"
+            f"Login URL: {login_url}\n"
+            f"Email: {admin_user.email}\n"
+            f"Temporary password: {temp_password}\n\n"
+            "Please log in and change your password after signing in."
+        ),
+        from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", None),
+        recipient_list=[admin_user.email],
+        fail_silently=False,
+    )
 
 
 def index(request):
@@ -66,12 +90,13 @@ def platform_dashboard(request):
     create_form = TenantCreateForm()
     created_admin_password = None
     create_error = None
+    create_success = None
 
     if request.method == "POST" and request.POST.get("action") == "create_tenant":
         create_form = TenantCreateForm(request.POST)
         if create_form.is_valid():
             name = create_form.cleaned_data["name"]
-            slug = create_form.cleaned_data.get("slug") or slugify(name)
+            slug = slugify(name)
             admin_email = create_form.cleaned_data["admin_email"]
             admin_name = create_form.cleaned_data["admin_name"]
             plan = create_form.cleaned_data.get("plan") or None
@@ -89,7 +114,7 @@ def platform_dashboard(request):
                     suspended_reason=None if is_active else "Created inactive",
                 )
 
-                password = User.objects.make_random_password()
+                password = _generate_temp_password()
                 admin_user = User.objects.create_user(
                     email=admin_email,
                     password=password,
@@ -99,7 +124,15 @@ def platform_dashboard(request):
                 )
                 admin_user.first_name = admin_name
                 admin_user.save(update_fields=["first_name"])
-                created_admin_password = password
+                try:
+                    _send_tenant_admin_temp_password_email(request, tenant, admin_user, password)
+                    create_success = f"Tenant created. Temporary password emailed to {admin_email}."
+                except Exception:
+                    created_admin_password = password
+                    create_error = (
+                        "Tenant created, but email could not be sent. "
+                        "Share the temporary password shown below manually."
+                    )
         else:
             create_error = "Please correct the form errors."
 
@@ -113,6 +146,7 @@ def platform_dashboard(request):
         "users": users,
         "create_form": create_form,
         "create_error": create_error,
+        "create_success": create_success,
         "created_admin_password": created_admin_password,
     }
     return render(request, "kyc/platform_dashboard.html", context)
@@ -245,7 +279,7 @@ def admin_user_reset_password(request, user_id):
     if request.method != "POST":
         return redirect("admin_users")
     user = get_object_or_404(User, id=user_id)
-    temp_password = User.objects.make_random_password()
+    temp_password = _generate_temp_password()
     user.set_password(temp_password)
     user.save(update_fields=["password"])
     request.session["reset_password_notice"] = {

@@ -18,7 +18,7 @@ Main apps:
 ## 2) Tech Stack
 - Python 3.10+
 - Django (custom user model)
-- SQLite (default)
+- MySQL (default / required)
 - OpenCV + NumPy (image handling)
 - Browser camera APIs (`getUserMedia`)
 - Optional ngrok (phone testing over HTTPS)
@@ -72,6 +72,7 @@ brew install tesseract
 ```
 
 ### 4.3 Run migrations
+Make sure your `.env` is configured for MySQL first (see section 4.5), then run:
 ```bash
 python manage.py migrate
 ```
@@ -81,6 +82,43 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 Use email/password (username is disabled in custom user model).
+
+### 4.5 Use MySQL permanently with `.env` (instead of re-exporting every time)
+`myproject/settings.py` now auto-loads a local `.env` file (if present).
+
+1. Create your local env file:
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` with your MySQL values (same connection you use in TablePlus):
+```env
+DB_ENGINE=mysql
+DB_NAME=ekyc
+DB_USER=root
+DB_PASSWORD=
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
+
+3. Run Django commands normally (no repeated `export` needed):
+```bash
+python manage.py check
+python manage.py migrate
+python manage.py runserver
+```
+
+4. Verify in TablePlus:
+- Refresh tables in the `ekyc` database
+- Confirm tables like `django_migrations` and `accounts_user` exist
+- Optional SQL check:
+```sql
+SELECT COUNT(*) FROM django_migrations;
+```
+
+Note:
+- `.env` is ignored by git.
+- Shell `export` variables still override `.env` values if both exist.
 
 ---
 
