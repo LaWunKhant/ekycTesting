@@ -28,10 +28,35 @@ from django.db.models import Q
 
 from .forms import TenantCreateForm, TenantUpdateForm
 from .services.card_physical_check import analyze_card_physicality
+from .services.mistral_ai import build_identity_assist, enqueue_session_ocr
 
 # Global variable to track liveness process
 liveness_process = None
 logger = logging.getLogger(__name__)
+
+
+def _runtime_public_base_url():
+    # Read PUBLIC_BASE_URL from .env at runtime so changed ngrok URLs are picked up
+    # without relying on process-level exported env vars.
+    env_path = settings.BASE_DIR / ".env"
+    if env_path.exists():
+        try:
+            for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key.strip() != "PUBLIC_BASE_URL":
+                    continue
+                value = value.strip()
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    value = value[1:-1]
+                return value.rstrip("/")
+        except Exception:
+            pass
+    return (os.getenv("PUBLIC_BASE_URL") or getattr(django_settings, "PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
 
 
 def _generate_temp_password(length=12):
@@ -395,7 +420,7 @@ def tenant_dashboard(request, tenant_slug):
             )
             if customer.email:
                 link_url = ""
-                public_base = getattr(django_settings, "PUBLIC_BASE_URL", "").rstrip("/")
+                public_base = _runtime_public_base_url()
                 if public_base:
                     link_url = f"{public_base}/verify/start/{latest_link.token}/"
                 else:
@@ -421,7 +446,7 @@ def tenant_dashboard(request, tenant_slug):
         "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
         "customer_form": customer_form,
         "latest_link": latest_link,
-        "public_base_url": getattr(settings, "PUBLIC_BASE_URL", "").rstrip("/"),
+        "public_base_url": _runtime_public_base_url(),
         "media_url": settings.MEDIA_URL,
         **_impersonation_context(request),
     }
@@ -921,234 +946,221 @@ def capture_document(request):
 @csrf_exempt
 def verify_kyc(request):
     """Process complete KYC verification"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            session_id = data.get('session_id')
-            tenant = _resolve_tenant(data)
-            front_path = data.get('front_image')
-            back_path = data.get('back_image')
-            selfie_path = data.get('selfie_image')
-            tilt_images = data.get('tilt_images') or []
-            liveness_verified = data.get('liveness_verified', False)  # NEW: Get liveness status
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST requests allowed"}, status=400)
 
-            print(f"\n{'=' * 70}")
-            print("Starting KYC Verification...")
-            print(f"Front: {front_path}")
-            print(f"Back: {back_path}")
-            print(f"Selfie: {selfie_path}")
-            print(f"Tilt frames: {len(tilt_images)}")
-            print(f"Liveness: {'✓ Verified' if liveness_verified else '✗ Not verified'}")
-            print(f"{'=' * 70}\n")
+    try:
+        data = json.loads(request.body)
+        session_id = data.get("session_id")
+        tenant = _resolve_tenant(data)
+        front_path = data.get("front_image")
+        back_path = data.get("back_image")
+        selfie_path = data.get("selfie_image")
+        tilt_images = data.get("tilt_images") or []
+        liveness_verified = bool(data.get("liveness_verified", False))
 
-            if session_id and tenant is None:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Missing or invalid tenant'
-                }, status=400)
+        if session_id and tenant is None:
+            return JsonResponse({"success": False, "error": "Missing or invalid tenant"}, status=400)
+        if not front_path or not selfie_path:
+            return JsonResponse({"success": False, "error": "Missing required images (front and selfie)"}, status=400)
 
-            if not front_path or not selfie_path:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Missing required images (front and selfie)'
-                }, status=400)
+        front_path = _resolve_media_path(front_path)
+        back_path = _resolve_media_path(back_path)
+        selfie_path = _resolve_media_path(selfie_path)
+        tilt_paths = [_resolve_media_path(path) for path in tilt_images if path]
 
-            # Check if files exist
-            front_path = _resolve_media_path(front_path)
-            back_path = _resolve_media_path(back_path)
-            selfie_path = _resolve_media_path(selfie_path)
-            tilt_paths = [_resolve_media_path(path) for path in tilt_images if path]
+        card_detection = None
+        session_for_identity = None
+        if session_id and tenant is not None:
+            session_for_identity = VerificationSession.objects.select_related("customer").filter(
+                id=session_id, tenant=tenant
+            ).first()
+            card_detection, tilt_paths = _hydrate_card_context(session_for_identity, tilt_images, tilt_paths)
 
-            card_detection = None
-            if session_id and tenant is not None:
-                session_for_card = VerificationSession.objects.filter(id=session_id, tenant=tenant).first()
-                if session_for_card:
-                    session_tilt = session_for_card.tilt_frames or []
-                    if tilt_images and not session_tilt:
-                        session_for_card.tilt_frames = tilt_images
-                        session_for_card.save(update_fields=["tilt_frames"])
-                        session_tilt = tilt_images
-                    for p in session_tilt:
-                        rp = _resolve_media_path(p)
-                        if rp and rp not in tilt_paths:
-                            tilt_paths.append(rp)
-                    thickness_path = _resolve_media_path(session_for_card.thickness_card)
-                    if thickness_path and thickness_path not in tilt_paths:
-                        tilt_paths.append(thickness_path)
-                    if session_for_card.document_type:
-                        card_detection = {
-                            "document_type": session_for_card.document_type,
-                            "label": {
-                                "driver_license": "Driver License",
-                                "my_number": "My Number Card",
-                                "passport": "Passport",
-                                "residence_card": "Residence Card",
-                            }.get(session_for_card.document_type, session_for_card.document_type),
-                        }
+        if not os.path.exists(front_path):
+            return JsonResponse({"success": False, "error": f"Front image not found: {front_path}"}, status=400)
+        if not os.path.exists(selfie_path):
+            return JsonResponse({"success": False, "error": f"Selfie image not found: {selfie_path}"}, status=400)
 
-            if not os.path.exists(front_path):
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Front image not found: {front_path}'
-                }, status=400)
+        id_face_path = _extract_id_face_crop(front_path)
+        if not id_face_path:
+            return JsonResponse(
+                {"success": False, "error": "No face found in ID card. Please ensure the photo on the ID is clear and visible."},
+                status=400,
+            )
 
-            if not os.path.exists(selfie_path):
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Selfie image not found: {selfie_path}'
-                }, status=400)
+        verification = _compare_id_vs_selfie(id_face_path=id_face_path, selfie_path=selfie_path)
+        if not verification["ok"]:
+            return JsonResponse({"success": False, "error": verification["error"]}, status=500)
 
-            # Import DeepFace here
-            from deepface import DeepFace
+        identity_assist = build_identity_assist(
+            face_similarity=verification["avg_similarity"],
+            liveness_verified=liveness_verified,
+            customer=(session_for_identity.customer if session_for_identity else None),
+            ocr_result={},
+        )
 
-            print("Step 1: Extracting face from ID card...")
+        ai_document_extraction = {
+            "status": "queued" if getattr(settings, "MISTRAL_ENABLE_OCR", True) else "disabled",
+            "front": None,
+            "back": None,
+        }
+        physical_result = analyze_card_physicality(tilt_paths)
 
-            # Extract face from ID card
-            try:
-                faces = DeepFace.extract_faces(
-                    img_path=front_path,
-                    detector_backend='opencv',
-                    enforce_detection=False,
-                    align=True
+        result_payload = {
+            "success": True,
+            "verified": verification["final_match"],
+            "similarity": verification["avg_similarity"],
+            "confidence": verification["avg_similarity"],
+            "votes": verification["votes_yes"],
+            "total_models": len(verification["results"]),
+            "liveness_verified": liveness_verified,
+            "details": {
+                "id_face_path": id_face_path,
+                "models": verification["results"],
+                "liveness_status": "verified" if liveness_verified else "skipped",
+                "tilt_frames_used": physical_result.get("frames_used", 0),
+            },
+            "ai_document_extraction": ai_document_extraction,
+            "identity_assist": identity_assist,
+            "physical_card_check": physical_result,
+        }
+        if card_detection:
+            result_payload["detected_card"] = card_detection
+
+        if session_id:
+            _update_session_verification(
+                session_id=session_id,
+                tenant=tenant,
+                verified=verification["final_match"],
+                confidence=verification["avg_similarity"],
+                similarity=verification["avg_similarity"],
+                liveness_verified=liveness_verified,
+                physical_result=physical_result,
+                card_detection=card_detection,
+                ai_document_extraction=ai_document_extraction,
+                identity_assist=identity_assist,
+            )
+            if getattr(settings, "MISTRAL_ENABLE_OCR", True):
+                enqueue_session_ocr(
+                    session_id=session_id,
+                    tenant_id=tenant.id if tenant else None,
+                    front_path=front_path,
+                    back_path=back_path if back_path and os.path.exists(back_path) else None,
+                    document_type=(session_for_identity.document_type if session_for_identity else None),
+                    enable_back_ocr=getattr(settings, "MISTRAL_ENABLE_BACK_OCR", False),
                 )
 
-                if not faces or len(faces) == 0:
-                    print("❌ No face detected in ID card")
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'No face found in ID card. Please ensure the photo on the ID is clear and visible.'
-                    }, status=400)
+        return JsonResponse(result_payload)
 
-                print(f"✓ Found {len(faces)} face(s) in ID")
+    except Exception as exc:
+        logger.exception("verify_kyc failed")
+        return JsonResponse({"success": False, "error": str(exc)}, status=500)
 
-                # Get the largest face
-                largest_face = max(faces, key=lambda x: x['facial_area']['w'] * x['facial_area']['h'])
 
-                # Save extracted face
-                doc_image = cv2.imread(front_path)
-                facial_area = largest_face['facial_area']
-                x, y, w, h = facial_area['x'], facial_area['y'], facial_area['w'], facial_area['h']
+def _hydrate_card_context(session, tilt_images, tilt_paths):
+    card_detection = None
+    if session is None:
+        return card_detection, tilt_paths
 
-                # Add padding
-                padding = 20
-                x = max(0, x - padding)
-                y = max(0, y - padding)
-                w = min(doc_image.shape[1] - x, w + 2 * padding)
-                h = min(doc_image.shape[0] - y, h + 2 * padding)
+    session_tilt = session.tilt_frames or []
+    if tilt_images and not session_tilt:
+        session.tilt_frames = tilt_images
+        session.save(update_fields=["tilt_frames"])
+        session_tilt = tilt_images
 
-                id_face = doc_image[y:y + h, x:x + w]
+    for p in session_tilt:
+        resolved = _resolve_media_path(p)
+        if resolved and resolved not in tilt_paths:
+            tilt_paths.append(resolved)
 
-                # Save derived face crop under MEDIA_ROOT for consistent runtime storage.
-                extracted_faces_dir = os.path.join(settings.MEDIA_ROOT, "extracted_faces")
-                os.makedirs(extracted_faces_dir, exist_ok=True)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                id_face_path = os.path.join(extracted_faces_dir, f"id_face_{timestamp}.jpg")
-                cv2.imwrite(id_face_path, id_face, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    thickness_path = _resolve_media_path(session.thickness_card)
+    if thickness_path and thickness_path not in tilt_paths:
+        tilt_paths.append(thickness_path)
 
-                print(f"✓ Extracted ID face: {id_face_path}")
+    if session.document_type:
+        card_detection = {
+            "document_type": session.document_type,
+            "label": {
+                "driver_license": "Driver License",
+                "my_number": "My Number Card",
+                "passport": "Passport",
+                "residence_card": "Residence Card",
+            }.get(session.document_type, session.document_type),
+        }
+    return card_detection, tilt_paths
 
-            except Exception as e:
-                print(f"❌ Face extraction failed: {str(e)}")
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Could not extract face from ID: {str(e)}'
-                }, status=400)
 
-            print("\nStep 2: Comparing faces...")
+def _extract_id_face_crop(front_path):
+    from deepface import DeepFace
 
-            # Compare faces
-            try:
-                models = ["VGG-Face", "Facenet"]
-                results = []
+    faces = DeepFace.extract_faces(
+        img_path=front_path,
+        detector_backend="opencv",
+        enforce_detection=False,
+        align=True,
+    )
+    if not faces:
+        return None
 
-                for model in models:
-                    print(f"Running {model}...")
-                    result = DeepFace.verify(
-                        img1_path=id_face_path,
-                        img2_path=selfie_path,
-                        model_name=model,
-                        enforce_detection=False
-                    )
+    largest_face = max(faces, key=lambda x: x["facial_area"]["w"] * x["facial_area"]["h"])
+    doc_image = cv2.imread(front_path)
+    if doc_image is None:
+        return None
 
-                    distance = result['distance']
-                    similarity = (1 - distance) * 100
-                    verified = result['verified']
+    facial_area = largest_face["facial_area"]
+    x, y, w, h = facial_area["x"], facial_area["y"], facial_area["w"], facial_area["h"]
 
-                    results.append({
-                        'model': model,
-                        'similarity': similarity,
-                        'verified': verified,
-                        'distance': distance
-                    })
+    padding = 20
+    x = max(0, x - padding)
+    y = max(0, y - padding)
+    w = min(doc_image.shape[1] - x, w + 2 * padding)
+    h = min(doc_image.shape[0] - y, h + 2 * padding)
 
-                    status = "✓ MATCH" if verified else "✗ NO MATCH"
-                    print(f"  {model}: {similarity:.1f}% - {status}")
+    id_face = doc_image[y:y + h, x:x + w]
+    extracted_faces_dir = os.path.join(settings.MEDIA_ROOT, "extracted_faces")
+    os.makedirs(extracted_faces_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    id_face_path = os.path.join(extracted_faces_dir, f"id_face_{timestamp}.jpg")
+    cv2.imwrite(id_face_path, id_face, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    return id_face_path
 
-                # Calculate final decision
-                votes_yes = sum(1 for r in results if r['verified'])
-                avg_similarity = sum(r['similarity'] for r in results) / len(results)
-                final_match = votes_yes >= 1  # At least 1 model says match
 
-                print(f"\n{'=' * 70}")
-                print(f"VERIFICATION RESULT:")
-                print(f"  Average Similarity: {avg_similarity:.1f}%")
-                print(f"  Models Agree: {votes_yes}/{len(results)}")
-                print(f"  Liveness: {'✓ Verified' if liveness_verified else '✗ Not verified'}")
-                print(f"  Final Decision: {'✅ VERIFIED' if final_match else '❌ REJECTED'}")
-                print(f"{'=' * 70}\n")
+def _compare_id_vs_selfie(id_face_path, selfie_path):
+    from deepface import DeepFace
 
-                result_payload = {
-                    'success': True,
-                    'verified': final_match,
-                    'similarity': avg_similarity,
-                    'confidence': avg_similarity,
-                    'votes': votes_yes,
-                    'total_models': len(results),
-                    'liveness_verified': liveness_verified,  # NEW: Include liveness status
-                    'details': {
-                        'id_face_path': id_face_path,
-                        'models': results,
-                        'liveness_status': 'verified' if liveness_verified else 'skipped',
-                    }
-                }
+    models = ["VGG-Face", "Facenet"]
+    results = []
+    for model in models:
+        result = DeepFace.verify(
+            img1_path=id_face_path,
+            img2_path=selfie_path,
+            model_name=model,
+            enforce_detection=False,
+        )
+        distance = float(result["distance"])
+        similarity = (1 - distance) * 100
+        results.append(
+            {
+                "model": model,
+                "similarity": similarity,
+                "verified": bool(result["verified"]),
+                "distance": distance,
+            }
+        )
 
-                physical_result = analyze_card_physicality(tilt_paths)
-                result_payload["physical_card_check"] = physical_result
-                if card_detection:
-                    result_payload["detected_card"] = card_detection
-                result_payload["details"]["tilt_frames_used"] = physical_result.get("frames_used", 0)
+    if not results:
+        return {"ok": False, "error": "Face comparison produced no results"}
 
-                if session_id:
-                    _update_session_verification(
-                        session_id=session_id,
-                        tenant=tenant,
-                        verified=final_match,
-                        confidence=avg_similarity,
-                        similarity=avg_similarity,
-                        liveness_verified=liveness_verified,
-                        physical_result=physical_result,
-                        card_detection=card_detection,
-                    )
-
-                return JsonResponse(result_payload)
-
-            except Exception as e:
-                print(f"❌ Face comparison failed: {str(e)}")
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Face comparison failed: {str(e)}'
-                }, status=500)
-
-        except Exception as e:
-            print(f"❌ Verification error: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({
-                'success': False,
-                'error': str(e)
-            }, status=500)
-
-    return JsonResponse({'error': 'Only POST requests allowed'}, status=400)
+    votes_yes = sum(1 for r in results if r["verified"])
+    avg_similarity = sum(r["similarity"] for r in results) / len(results)
+    return {
+        "ok": True,
+        "results": results,
+        "votes_yes": votes_yes,
+        "avg_similarity": avg_similarity,
+        "final_match": votes_yes >= 1,
+    }
 
 
 def _resolve_media_path(path_or_name):
@@ -1189,6 +1201,8 @@ def _update_session_verification(
     liveness_verified,
     physical_result=None,
     card_detection=None,
+    ai_document_extraction=None,
+    identity_assist=None,
 ):
     try:
         if tenant is None:
@@ -1209,8 +1223,15 @@ def _update_session_verification(
         session.tilt_analysis = physical_result
     if card_detection:
         session.detected_card_type = card_detection.get("label")
+    session_document_data = session.document_data or {}
+    if ai_document_extraction:
+        session_document_data["ai_document_extraction"] = ai_document_extraction
+    if identity_assist:
+        session_document_data["identity_assist"] = identity_assist
+    if ai_document_extraction or identity_assist:
+        session.document_data = session_document_data
     session.updated_at = datetime.now(timezone.utc)
-    session.save(update_fields=[
+    update_fields = [
         "verify_verified",
         "verify_confidence",
         "verify_similarity",
@@ -1222,7 +1243,10 @@ def _update_session_verification(
         "tilt_analysis",
         "detected_card_type",
         "updated_at",
-    ])
+    ]
+    if ai_document_extraction or identity_assist:
+        update_fields.append("document_data")
+    session.save(update_fields=update_fields)
 
 
 def _resolve_tenant(data):

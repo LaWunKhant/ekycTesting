@@ -127,7 +127,10 @@
                     <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                         <div class="text-sm text-slate-300">Front ID</div>
                         {% if front_url %}
-                            <img class="mt-3 w-full rounded-lg" src="{{ front_url }}" alt="Front ID" />
+                            <a href="{{ front_url }}" target="_blank" rel="noopener noreferrer" class="mt-3 block" data-preview-trigger data-preview-src="{{ front_url }}" data-preview-alt="Front ID">
+                                <img class="w-full rounded-lg border border-slate-700 hover:border-cyan-400" src="{{ front_url }}" alt="Front ID" />
+                            </a>
+                            <div class="mt-2 text-xs text-slate-400">Click image to enlarge. Opens full image in new tab as fallback.</div>
                         {% else %}
                             <div class="mt-3 text-slate-500 text-sm">No image</div>
                         {% endif %}
@@ -135,7 +138,10 @@
                     <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                         <div class="text-sm text-slate-300">Back ID</div>
                         {% if back_url %}
-                            <img class="mt-3 w-full rounded-lg" src="{{ back_url }}" alt="Back ID" />
+                            <a href="{{ back_url }}" target="_blank" rel="noopener noreferrer" class="mt-3 block" data-preview-trigger data-preview-src="{{ back_url }}" data-preview-alt="Back ID">
+                                <img class="w-full rounded-lg border border-slate-700 hover:border-cyan-400" src="{{ back_url }}" alt="Back ID" />
+                            </a>
+                            <div class="mt-2 text-xs text-slate-400">Click image to enlarge. Opens full image in new tab as fallback.</div>
                         {% else %}
                             <div class="mt-3 text-slate-500 text-sm">No image</div>
                         {% endif %}
@@ -143,7 +149,10 @@
                     <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                         <div class="text-sm text-slate-300">Thickness Card</div>
                         {% if thickness_url %}
-                            <img class="mt-3 w-full rounded-lg" src="{{ thickness_url }}" alt="Thickness Card" />
+                            <a href="{{ thickness_url }}" target="_blank" rel="noopener noreferrer" class="mt-3 block" data-preview-trigger data-preview-src="{{ thickness_url }}" data-preview-alt="Thickness Card">
+                                <img class="w-full rounded-lg border border-slate-700 hover:border-cyan-400" src="{{ thickness_url }}" alt="Thickness Card" />
+                            </a>
+                            <div class="mt-2 text-xs text-slate-400">Click image to enlarge. Opens full image in new tab as fallback.</div>
                         {% else %}
                             <div class="mt-3 text-slate-500 text-sm">No image</div>
                         {% endif %}
@@ -151,7 +160,10 @@
                     <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                         <div class="text-sm text-slate-300">Selfie</div>
                         {% if selfie_url %}
-                            <img class="mt-3 w-full rounded-lg" src="{{ selfie_url }}" alt="Selfie" />
+                            <a href="{{ selfie_url }}" target="_blank" rel="noopener noreferrer" class="mt-3 block" data-preview-trigger data-preview-src="{{ selfie_url }}" data-preview-alt="Selfie">
+                                <img class="w-full rounded-lg border border-slate-700 hover:border-cyan-400" src="{{ selfie_url }}" alt="Selfie" />
+                            </a>
+                            <div class="mt-2 text-xs text-slate-400">Click image to enlarge. Opens full image in new tab as fallback.</div>
                         {% else %}
                             <div class="mt-3 text-slate-500 text-sm">No image</div>
                         {% endif %}
@@ -221,5 +233,65 @@
             </div>
         </div>
     </div>
+
+    <div id="image-preview-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/85 p-4">
+        <div class="w-full max-w-6xl">
+            <div class="mb-3 flex items-center justify-between">
+                <div class="text-sm text-slate-300" id="image-preview-title">Preview</div>
+                <div class="flex items-center gap-3">
+                    <a id="image-preview-open" href="#" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/20">Open in new tab</a>
+                    <button id="image-preview-close" type="button" class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800">Close</button>
+                </div>
+            </div>
+            <div class="rounded-xl border border-slate-700 bg-slate-900 p-2">
+                <img id="image-preview-img" class="max-h-[80vh] w-full rounded-lg object-contain" src="" alt="Preview image" />
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const modal = document.getElementById("image-preview-modal");
+            const modalImg = document.getElementById("image-preview-img");
+            const modalTitle = document.getElementById("image-preview-title");
+            const modalOpen = document.getElementById("image-preview-open");
+            const modalClose = document.getElementById("image-preview-close");
+            const triggers = document.querySelectorAll("[data-preview-trigger]");
+
+            if (!modal || !modalImg || !modalClose || !triggers.length) return;
+
+            function closeModal() {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+                modalImg.src = "";
+            }
+
+            function openModal(src, title) {
+                modalImg.src = src;
+                modalImg.alt = title || "Preview image";
+                if (modalTitle) modalTitle.textContent = title || "Preview";
+                if (modalOpen) modalOpen.href = src;
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+            }
+
+            triggers.forEach((el) => {
+                el.addEventListener("click", function (event) {
+                    event.preventDefault();
+                    const src = el.getAttribute("data-preview-src") || el.getAttribute("href");
+                    const title = el.getAttribute("data-preview-alt") || "Preview";
+                    if (src) openModal(src, title);
+                });
+            });
+
+            modalClose.addEventListener("click", closeModal);
+            modal.addEventListener("click", function (event) {
+                if (event.target === modal) closeModal();
+            });
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") closeModal();
+            });
+        })();
+    </script>
 </body>
 </html>

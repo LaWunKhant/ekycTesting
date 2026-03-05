@@ -1,0 +1,446 @@
+import base64
+import json
+import os
+import itertools
+import queue
+import ssl
+import threading
+import time
+import logging
+from datetime import datetime, timezone
+from urllib import error, request
+
+from django.conf import settings
+import certifi
+
+logger = logging.getLogger(__name__)
+
+
+_RATE_LIMIT_LOCK = threading.Lock()
+_LAST_MISTRAL_CALL_AT = 0.0
+_OCR_QUEUE = queue.PriorityQueue()
+_WORKER_THREAD = None
+_WORKER_LOCK = threading.Lock()
+_JOB_SEQ = itertools.count()
+
+
+def _json_dumps(payload):
+    return json.dumps(payload, ensure_ascii=True).encode("utf-8")
+
+
+def _safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _parse_json_block(text):
+    if not text:
+        return {}
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3:
+            text = "\n".join(lines[1:-1]).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return {}
+    try:
+        return json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return {}
+
+
+def _to_base64(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
+
+
+def _build_ssl_context():
+    verify_ssl = bool(getattr(settings, "MISTRAL_SSL_VERIFY", True))
+    if not verify_ssl:
+        return ssl._create_unverified_context()
+
+    explicit_bundle = (getattr(settings, "MISTRAL_CA_BUNDLE", "") or "").strip()
+    if explicit_bundle:
+        return ssl.create_default_context(cafile=explicit_bundle)
+
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def _request_mistral_ocr(image_path, document_type):
+    api_key = getattr(settings, "MISTRAL_API_KEY", "").strip()
+    base_url = getattr(settings, "MISTRAL_BASE_URL", "https://api.mistral.ai/v1").rstrip("/")
+    model = getattr(settings, "MISTRAL_OCR_MODEL", "mistral-ocr-latest").strip()
+    timeout = int(getattr(settings, "MISTRAL_REQUEST_TIMEOUT", 25))
+
+    if not api_key:
+        return {"ok": False, "error": "MISTRAL_API_KEY is not configured"}
+    if not os.path.exists(image_path):
+        return {"ok": False, "error": "document image not found"}
+
+    image_b64 = _to_base64(image_path)
+    prompt = (
+        "You are an eKYC OCR assistant. Extract document fields from the image.\n"
+        "Return strict JSON only with this schema:\n"
+        "{"
+        "\"full_name\":\"\","
+        "\"date_of_birth\":\"\","
+        "\"document_number\":\"\","
+        "\"expiry_date\":\"\","
+        "\"nationality\":\"\","
+        "\"address\":\"\","
+        "\"confidence\":0,"
+        "\"notes\":\"\""
+        "}\n"
+        "confidence must be an integer from 0 to 100. "
+        f"Document type hint: {document_type or 'unknown'}."
+    )
+    payload = {
+        "model": model,
+        "document": {
+            "type": "image_url",
+            "image_url": f"data:image/jpeg;base64,{image_b64}",
+        },
+        "include_image_base64": False,
+        "document_annotation_prompt": prompt,
+        "document_annotation_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "kyc_document_extraction",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "full_name": {"type": "string"},
+                        "date_of_birth": {"type": "string"},
+                        "document_number": {"type": "string"},
+                        "expiry_date": {"type": "string"},
+                        "nationality": {"type": "string"},
+                        "address": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": [
+                        "full_name",
+                        "date_of_birth",
+                        "document_number",
+                        "expiry_date",
+                        "nationality",
+                        "address",
+                        "confidence",
+                        "notes",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+        },
+    }
+
+    req = request.Request(
+        url=f"{base_url}/ocr",
+        data=_json_dumps(payload),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    ssl_context = _build_ssl_context()
+    try:
+        with request.urlopen(req, timeout=timeout, context=ssl_context) as resp:
+            raw = resp.read().decode("utf-8")
+    except error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        return {"ok": False, "error": f"Mistral HTTP {exc.code}", "details": body[:500]}
+    except error.URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, Exception):
+            reason_text = f"{type(reason).__name__}: {reason}"
+        else:
+            reason_text = str(reason or "network error")
+        return {"ok": False, "error": "Mistral network error", "details": reason_text[:500]}
+    except TimeoutError:
+        return {
+            "ok": False,
+            "error": "Mistral timeout",
+            "details": f"No response within {timeout}s. Increase MISTRAL_REQUEST_TIMEOUT or check network.",
+        }
+    except Exception as exc:
+        msg = str(exc).strip() or repr(exc)
+        return {"ok": False, "error": f"Mistral request failed ({type(exc).__name__})", "details": msg[:500]}
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"ok": False, "error": "Invalid JSON response from Mistral"}
+
+    extracted = {}
+    annotation = parsed.get("document_annotation")
+    if isinstance(annotation, dict):
+        extracted = annotation
+    elif isinstance(annotation, str):
+        extracted = _parse_json_block(annotation)
+
+    pages = parsed.get("pages") or []
+    page_markdown = ""
+    if pages and isinstance(pages, list):
+        first = pages[0] or {}
+        page_markdown = str(first.get("markdown") or "").strip()
+
+    if not extracted and page_markdown:
+        extracted = {
+            "notes": page_markdown[:5000],
+            "confidence": 25,
+        }
+
+    confidence = max(0.0, min(100.0, _safe_float(extracted.get("confidence"), default=0.0)))
+    return {
+        "ok": True,
+        "provider": "mistral",
+        "model": model,
+        "endpoint": "ocr",
+        "document_type": document_type,
+        "extracted": {
+            "full_name": (extracted.get("full_name") or "").strip(),
+            "date_of_birth": (extracted.get("date_of_birth") or "").strip(),
+            "document_number": (extracted.get("document_number") or "").strip(),
+            "expiry_date": (extracted.get("expiry_date") or "").strip(),
+            "nationality": (extracted.get("nationality") or "").strip(),
+            "address": (extracted.get("address") or "").strip(),
+            "notes": (extracted.get("notes") or page_markdown or "").strip(),
+        },
+        "confidence": confidence,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _normalized_text(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def build_identity_assist(face_similarity, liveness_verified, customer, ocr_result):
+    ocr_data = (ocr_result or {}).get("extracted") or {}
+    has_ocr = bool((ocr_result or {}).get("ok"))
+    face_score = max(0.0, min(100.0, _safe_float(face_similarity, default=0.0)))
+    ocr_conf = max(0.0, min(100.0, _safe_float((ocr_result or {}).get("confidence"), default=0.0))) if has_ocr else 0.0
+    liveness_score = 100.0 if liveness_verified else 35.0
+
+    name_match = False
+    dob_match = False
+    if customer is not None and has_ocr:
+        customer_name = _normalized_text(getattr(customer, "full_name", ""))
+        ocr_name = _normalized_text(ocr_data.get("full_name"))
+        if customer_name and ocr_name:
+            name_match = customer_name in ocr_name or ocr_name in customer_name
+
+        customer_dob = getattr(customer, "date_of_birth", None)
+        customer_dob_text = str(customer_dob) if customer_dob else ""
+        ocr_dob = _normalized_text(ocr_data.get("date_of_birth"))
+        if customer_dob_text and ocr_dob:
+            dob_match = customer_dob_text in ocr_dob or ocr_dob in customer_dob_text
+
+    profile_match_score = 0.0
+    if name_match:
+        profile_match_score += 60.0
+    if dob_match:
+        profile_match_score += 40.0
+
+    weights = {
+        "face": 0.60,
+        "liveness": 0.10,
+        "ocr": 0.20 if has_ocr else 0.0,
+        "profile": 0.10 if has_ocr else 0.0,
+    }
+    active_weight = sum(weights.values()) or 1.0
+    combined = (
+        (weights["face"] * face_score)
+        + (weights["liveness"] * liveness_score)
+        + (weights["ocr"] * ocr_conf)
+        + (weights["profile"] * profile_match_score)
+    ) / active_weight
+    combined = max(0.0, min(100.0, combined))
+
+    if combined >= 80:
+        recommendation = "high_match_manual_confirm"
+    elif combined >= 60:
+        recommendation = "medium_match_manual_review"
+    else:
+        recommendation = "low_match_investigate"
+
+    return {
+        "score": round(combined, 2),
+        "face_similarity_score": round(face_score, 2),
+        "ocr_confidence_score": round(ocr_conf, 2),
+        "liveness_score": round(liveness_score, 2),
+        "profile_match_score": round(profile_match_score, 2),
+        "name_match": bool(name_match),
+        "dob_match": bool(dob_match),
+        "recommendation": recommendation,
+        "scoring_mode": "with_ocr" if has_ocr else "fallback_without_ocr",
+    }
+
+
+def _respect_mistral_interval():
+    global _LAST_MISTRAL_CALL_AT
+    min_interval = max(0.0, float(getattr(settings, "MISTRAL_MIN_INTERVAL_SECONDS", 1.0)))
+    if min_interval <= 0:
+        return
+    with _RATE_LIMIT_LOCK:
+        now = time.monotonic()
+        wait_for = (_LAST_MISTRAL_CALL_AT + min_interval) - now
+        if wait_for > 0:
+            time.sleep(wait_for)
+        _LAST_MISTRAL_CALL_AT = time.monotonic()
+
+
+def _is_rate_limited(result):
+    if not isinstance(result, dict):
+        return False
+    err = (result.get("error") or "").lower()
+    details = (result.get("details") or "").lower()
+    return ("http 429" in err) or ("rate limit" in err) or ('"code":"1300"' in details)
+
+
+def extract_with_mistral(image_path, document_type):
+    max_retries = max(0, int(getattr(settings, "MISTRAL_MAX_RETRIES", 2)))
+    retry_base = max(0.1, float(getattr(settings, "MISTRAL_RETRY_BASE_SECONDS", 1.0)))
+
+    last_result = None
+    for attempt in range(max_retries + 1):
+        _respect_mistral_interval()
+        result = _request_mistral_ocr(image_path=image_path, document_type=document_type)
+        last_result = result
+        if result.get("ok"):
+            return result
+        if not _is_rate_limited(result) or attempt >= max_retries:
+            return result
+        time.sleep(retry_base * (2 ** attempt))
+    return last_result or {"ok": False, "error": "Mistral request failed", "details": "unknown error"}
+
+
+def _process_ocr_job(job):
+    from kyc.models import VerificationSession
+
+    session_id = job.get("session_id")
+    tenant_id = job.get("tenant_id")
+    front_path = job.get("front_path")
+    back_path = job.get("back_path")
+    document_type = job.get("document_type")
+    enable_back_ocr = bool(job.get("enable_back_ocr", False))
+
+    front_result = extract_with_mistral(front_path, document_type=document_type)
+    back_result = None
+    if enable_back_ocr and back_path and os.path.exists(back_path):
+        back_result = extract_with_mistral(back_path, document_type=document_type)
+
+    rate_limited = _is_rate_limited(front_result) or _is_rate_limited(back_result or {})
+    queue_attempt = int(job.get("queue_attempt", 0))
+    queue_max_attempts = max(0, int(getattr(settings, "MISTRAL_QUEUE_MAX_ATTEMPTS", 6)))
+    queue_retry_base = max(1.0, float(getattr(settings, "MISTRAL_QUEUE_RETRY_BASE_SECONDS", 30.0)))
+
+    try:
+        session = VerificationSession.objects.select_related("customer").get(id=session_id, tenant_id=tenant_id)
+    except VerificationSession.DoesNotExist:
+        return
+
+    if rate_limited and queue_attempt < queue_max_attempts:
+        retry_in = queue_retry_base * (2 ** queue_attempt)
+        session_document_data = session.document_data or {}
+        session_document_data["ai_document_extraction"] = {
+            "status": "rate_limited_retry",
+            "front": front_result,
+            "back": back_result,
+            "queued_at": job.get("queued_at"),
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+            "retry_in_seconds": round(retry_in, 2),
+            "queue_attempt": queue_attempt + 1,
+            "queue_max_attempts": queue_max_attempts,
+        }
+        session.document_data = session_document_data
+        session.updated_at = datetime.now(timezone.utc)
+        session.save(update_fields=["document_data", "updated_at"])
+        enqueue_session_ocr(
+            session_id=session_id,
+            tenant_id=tenant_id,
+            front_path=front_path,
+            back_path=back_path,
+            document_type=document_type,
+            enable_back_ocr=enable_back_ocr,
+            queue_attempt=queue_attempt + 1,
+            delay_seconds=retry_in,
+            queued_at=job.get("queued_at"),
+        )
+        return
+
+    identity_assist = build_identity_assist(
+        face_similarity=session.verify_similarity,
+        liveness_verified=session.liveness_verified,
+        customer=session.customer,
+        ocr_result=(front_result if front_result.get("ok") else {}),
+    )
+    session_document_data = session.document_data or {}
+    session_document_data["ai_document_extraction"] = {
+        "status": "completed",
+        "front": front_result,
+        "back": back_result,
+        "queued_at": job.get("queued_at"),
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    session_document_data["identity_assist"] = identity_assist
+    session.document_data = session_document_data
+    session.updated_at = datetime.now(timezone.utc)
+    session.save(update_fields=["document_data", "updated_at"])
+
+
+def _worker_loop():
+    while True:
+        next_run_at, _, job = _OCR_QUEUE.get()
+        try:
+            now = time.time()
+            if next_run_at > now:
+                _OCR_QUEUE.put((next_run_at, next(_JOB_SEQ), job))
+                time.sleep(min(next_run_at - now, 2.0))
+                continue
+            _process_ocr_job(job)
+        except Exception:
+            # Keep worker alive on job-level failures.
+            logger.exception("Mistral OCR worker job failed")
+        finally:
+            _OCR_QUEUE.task_done()
+
+
+def _ensure_worker_started():
+    global _WORKER_THREAD
+    with _WORKER_LOCK:
+        if _WORKER_THREAD and _WORKER_THREAD.is_alive():
+            return
+        _WORKER_THREAD = threading.Thread(target=_worker_loop, daemon=True, name="mistral-ocr-worker")
+        _WORKER_THREAD.start()
+
+
+def enqueue_session_ocr(
+    session_id,
+    tenant_id,
+    front_path,
+    back_path,
+    document_type,
+    enable_back_ocr=False,
+    queue_attempt=0,
+    delay_seconds=0.0,
+    queued_at=None,
+):
+    _ensure_worker_started()
+    job = {
+        "session_id": session_id,
+        "tenant_id": tenant_id,
+        "front_path": front_path,
+        "back_path": back_path,
+        "document_type": document_type,
+        "enable_back_ocr": bool(enable_back_ocr),
+        "queue_attempt": int(queue_attempt),
+        "queued_at": queued_at or datetime.now(timezone.utc).isoformat(),
+    }
+    run_at = time.time() + max(0.0, float(delay_seconds))
+    _OCR_QUEUE.put((run_at, next(_JOB_SEQ), job))

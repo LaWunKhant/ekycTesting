@@ -1,97 +1,62 @@
 # MoonKYC (Django) - Developer Runbook
 
-This README is the single source of truth for running, debugging, and modifying this project.
+This README is the single source of truth for setup, runtime, troubleshooting, and recent architecture decisions.
 
-## 1) What This Project Is
-MoonKYC is a Django-based eKYC system with:
-- Multi-tenant dashboards (platform admin + tenant workspace)
-- Customer verification flow (document capture, card thickness, liveness, selfie, submit)
-- Review queue for manual verification
-- Temporary debug routes for flow testing
+## 1) Project Overview
+MoonKYC is a Django-based multi-tenant eKYC platform with:
+- Platform admin workspace (`/admin/dashboard/`)
+- Tenant workspace (`/<tenant_slug>/dashboard/`)
+- Customer verification flow (document capture, liveness, selfie, submit)
+- Manual review queue for final approval/rejection
+- AI assist (face similarity + optional Mistral OCR) with strict human-in-the-loop final decision
 
-Main apps:
-- `accounts`: auth, login/signup/logout, custom user model
-- `kyc`: verification flow, dashboards, APIs, liveness, review
+Core apps:
+- `accounts`: authentication, login/logout/signup/password change
+- `kyc`: tenants/customers/sessions, verification APIs, review workflows, OCR queue integration
 
----
-
-## 2) Tech Stack
+## 2) Stack
 - Python 3.10+
-- Django (custom user model)
-- MySQL (default / required)
-- OpenCV + NumPy (image handling)
-- Browser camera APIs (`getUserMedia`)
-- Optional ngrok (phone testing over HTTPS)
+- Django
+- MySQL only
+- OpenCV + NumPy
+- DeepFace (face extraction/verification)
+- Mistral OCR API (asynchronous queue-based extraction)
+- Tailwind (template-level CDN use)
 
----
+## 3) Important Files
+- `manage.py`
+- `myproject/settings.py`
+- `myproject/urls.py`
+- `accounts/models.py`
+- `accounts/views.py`
+- `accounts/templates/registration/password_change.html`
+- `kyc/models.py`
+- `kyc/views.py`
+- `kyc/api_views.py`
+- `kyc/services/card_physical_check.py`
+- `kyc/services/mistral_ai.py`
+- `kyc/templates/kyc/admin_session_detail.html`
+- `kyc/static/js/main.js`
 
-## 3) Project Structure (Important Files)
-- `manage.py`: Django entrypoint
-- `myproject/settings.py`: global settings
-- `myproject/urls.py`: top-level routes
-- `accounts/models.py`: custom `User` model (`AUTH_USER_MODEL`)
-- `accounts/views.py`: auth + role-aware login redirect
-- `kyc/models.py`: `Tenant`, `Customer`, `VerificationSession`, `VerificationLink`
-- `kyc/views.py`: dashboards, page views, review, temp bug routes
-- `kyc/api_views.py`: APIs (`/session/start`, `/capture/`, `/session/submit`, `/liveness-result`)
-- `kyc/templates/kyc/index.html`: main customer flow UI
-- `kyc/templates/kyc/liveness.html`: liveness page
-- `kyc/static/js/main.js`: main capture flow logic
-- `kyc/static/js/liveness.js`: liveness detection logic
-- `kyc/static/css/main.css`: camera overlay, responsive behavior
-- `kyc/static/css/liveness.css`: fullscreen liveness styling
-
----
-
-## 4) First-Time Setup
-
-### 4.1 Create & activate virtual environment
+## 4) Local Setup
+### 4.1 Create virtualenv
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
 ### 4.2 Install dependencies
-Current `requirements.txt` contains command lines, not a standard pip freeze format.
-Run these manually:
+`requirements.txt` in this repo is not a lock file. Install explicitly as needed:
 ```bash
-pip install opencv-python
-pip install face-recognition
-pip install pytesseract
-pip install Pillow
-pip install numpy
-pip install git+https://github.com/ageitgey/face_recognition_models
-pip install setuptools
-pip install deepface
-pip install tf-keras
+pip install django opencv-python numpy deepface tf-keras certifi
 ```
 
-If using macOS and OCR features:
-```bash
-brew install tesseract
-```
-
-### 4.3 Run migrations
-Make sure your `.env` is configured for MySQL first (see section 4.5), then run:
-```bash
-python manage.py migrate
-```
-
-### 4.4 Create super admin user (first login)
-```bash
-python manage.py createsuperuser
-```
-Use email/password (username is disabled in custom user model).
-
-### 4.5 Use MySQL permanently with `.env` (instead of re-exporting every time)
-`myproject/settings.py` now auto-loads a local `.env` file (if present).
-
-1. Create your local env file:
+### 4.3 Configure `.env`
 ```bash
 cp .env.example .env
 ```
 
-2. Edit `.env` with your MySQL values (same connection you use in TablePlus):
+Required database fields:
 ```env
 DB_ENGINE=mysql
 DB_NAME=ekyc
@@ -101,278 +66,189 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 ```
 
-3. Run Django commands normally (no repeated `export` needed):
+### 4.4 Migrate and run
 ```bash
-python manage.py check
 python manage.py migrate
-python manage.py runserver
-```
-
-4. Verify in TablePlus:
-- Refresh tables in the `ekyc` database
-- Confirm tables like `django_migrations` and `accounts_user` exist
-- Optional SQL check:
-```sql
-SELECT COUNT(*) FROM django_migrations;
-```
-
-Note:
-- `.env` is ignored by git.
-- Shell `export` variables still override `.env` values if both exist.
-
----
-
-## 5) Required Settings (`myproject/settings.py`)
-These are already present, but verify before running:
-
-- `DEBUG = True` (for local dev)
-- `ALLOWED_HOSTS` includes:
-  - `127.0.0.1`
-  - `localhost`
-  - `.ngrok-free.app` (for ngrok URL)
-- `CSRF_TRUSTED_ORIGINS` includes:
-  - `https://*.ngrok-free.app`
-- `AUTH_USER_MODEL = "accounts.User"`
-- Static/media:
-  - `STATIC_URL = "/static/"`
-  - `STATICFILES_DIRS = [BASE_DIR / "kyc" / "static"]`
-  - `MEDIA_URL = "/media/"`
-  - `MEDIA_ROOT = BASE_DIR / "media"`
-
-Optional but recommended:
-- `PUBLIC_BASE_URL` for shareable links (set to your current ngrok URL)
-  - Example: `https://xxxx-xx-xx-xx-xx.ngrok-free.app`
-- Email settings (`EMAIL_HOST`, `EMAIL_HOST_USER`, etc.) if sending mails
-
-Security note: move hardcoded secrets/passwords to environment variables for real deployments.
-
-Local runtime/artifact folders (recommended to keep out of Git):
-- `media/` for uploaded captures and derived images
-- `artifacts/` for large local model files (for example `artifacts/shape_predictor_68_face_landmarks.dat`)
-
----
-
-## 5.1) Internationalization (i18n/l10n) - English + Japanese
-
-The project is configured for English (`en`, default) and Japanese (`ja`).
-
-### Current i18n setup (already added)
-- `USE_I18N = True`
-- `LANGUAGE_CODE = "en"`
-- `LANGUAGES = [("en", "English"), ("ja", "日本語")]`
-- `LOCALE_PATHS = [BASE_DIR / "locale"]`
-- `django.middleware.locale.LocaleMiddleware` enabled (after session middleware)
-- Django language endpoint enabled at `/i18n/` (includes `/i18n/setlang/`)
-
-Key files:
-- `myproject/settings.py`
-- `myproject/urls.py`
-- `locale/ja/LC_MESSAGES/django.po`
-- `locale/ja/LC_MESSAGES/django.mo` (compiled)
-
-### How to mark strings for translation (templates)
-In Django templates:
-```django
-{% load i18n %}
-<h2>{% trans "Capture the front of your document" %}</h2>
-<p>{% trans "Tilt backward so the TOP edge is visible." %}</p>
-```
-
-For page language attribute:
-```django
-{% get_current_language as LANGUAGE_CODE %}
-<html lang="{{ LANGUAGE_CODE }}">
-```
-
-### How to update/add Japanese translations
-1. Mark new UI strings with `{% trans %}` (or `{% blocktrans %}` for longer/variable text).
-2. Regenerate/update the message file:
-```bash
-source .venv/bin/activate
-python manage.py makemessages -l ja
-```
-3. Edit Japanese translations in:
-- `locale/ja/LC_MESSAGES/django.po`
-4. Compile translations:
-```bash
-python manage.py compilemessages -l ja
-```
-5. Restart Django server and refresh the browser.
-
-Notes:
-- `compilemessages` requires GNU gettext (`msgfmt`). On macOS: `brew install gettext` (and ensure it is on PATH).
-- Only strings wrapped in translation tags/functions will be translated.
-
-### How to switch language at runtime
-Option A (automatic):
-- Browser `Accept-Language: ja` will render Japanese when `LocaleMiddleware` is active.
-
-Option B (manual, Django standard endpoint):
-- POST to `/i18n/setlang/` with `language=ja` or `language=en`
-
-Example form:
-```django
-{% load i18n %}
-<form action="{% url 'set_language' %}" method="post">
-  {% csrf_token %}
-  <input name="next" type="hidden" value="{{ request.path }}">
-  <button type="submit" name="language" value="en">English</button>
-  <button type="submit" name="language" value="ja">日本語</button>
-</form>
-```
-
-### JavaScript text (important)
-`kyc/static/js/liveness.js` now reads translated strings injected from `kyc/templates/kyc/liveness.html` via `window.LIVENESS_I18N`.
-
-If you localize more JS-heavy pages (for example `kyc/static/js/main.js`), use one of these patterns:
-- Inject translated strings from the Django template into `window.<...>`
-- Or use Django JS i18n (`gettext`, `JavaScriptCatalog`) if you want direct translation calls in JS
-
----
-
-## 6) Start Order (Important)
-Always start services in this order:
-
-1. Activate virtual env
-```bash
-source .venv/bin/activate
-```
-
-2. Start Django server
-```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 
-3. Start ngrok (for phone camera testing)
+### 4.5 Optional ngrok for mobile testing
 ```bash
 ngrok http 8000
 ```
-Do **not** run `http ngrok 8000`.
-Correct command is `ngrok http 8000`.
+Set latest URL in `.env`:
+```env
+PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
+```
 
-4. Update `PUBLIC_BASE_URL` in `.env` to the new ngrok URL (or export it in your shell)
+## 5) Environment Variables
+### 5.1 Database (MySQL only)
+- `DB_ENGINE` (must be `mysql`)
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST`
+- `DB_PORT`
 
-5. Open app:
-- Local: `http://127.0.0.1:8000`
-- Phone: ngrok HTTPS URL
+### 5.2 Core app
+- `SECRET_KEY`
+- `PUBLIC_BASE_URL`
+- `EMAIL_HOST`
+- `EMAIL_HOST_USER`
+- `EMAIL_HOST_PASSWORD`
+- `EMAIL_PORT`
+- `EMAIL_USE_TLS`
+- `DEFAULT_FROM_EMAIL`
 
----
+### 5.3 Mistral OCR / AI assist
+- `MISTRAL_API_KEY`
+- `MISTRAL_BASE_URL` (default `https://api.mistral.ai/v1`)
+- `MISTRAL_OCR_MODEL` (default `mistral-ocr-latest`)
+- `MISTRAL_REQUEST_TIMEOUT` (default `25`)
+- `MISTRAL_SSL_VERIFY` (default `true`)
+- `MISTRAL_CA_BUNDLE` (optional cert bundle path)
+- `MISTRAL_ENABLE_OCR` (default `true`)
+- `MISTRAL_ENABLE_BACK_OCR` (default `false`)
+- `MISTRAL_MAX_RETRIES` (default `2`, immediate request-level retries)
+- `MISTRAL_RETRY_BASE_SECONDS` (default `1.0`)
+- `MISTRAL_MIN_INTERVAL_SECONDS` (default `1.0`, throttle between API calls)
+- `MISTRAL_QUEUE_MAX_ATTEMPTS` (default `6`, queue-level retries on 429)
+- `MISTRAL_QUEUE_RETRY_BASE_SECONDS` (default `30.0`, exponential backoff base)
 
-## 7) Core Route Map
+## 6) Authentication and Account Flows
+- Login: `/accounts/login/`
+- Logout: `/accounts/logout/`
+- Signup (tenant owner bootstrap): `/accounts/signup/`
+- Password change: `/accounts/password/change/`
 
-### Platform/Admin
-- `/accounts/login/`
-- `/admin/dashboard/` (super admin dashboard)
+Password changes use Django `PasswordChangeForm` and keep session active via `update_session_auth_hash`.
+
+## 7) Route Map
+### 7.1 Platform Admin
+- `/admin/dashboard/`
 - `/admin/users/`
 - `/admin/tenants/<uuid>/...`
-
-### Tenant
-- `/<tenant_slug>/dashboard/`
-- `/dashboard/team/`
 - `/review/`
 
-### Customer Verification
+### 7.2 Tenant
+- `/<tenant_slug>/dashboard/`
+- `/<tenant_slug>/sessions/`
+- `/dashboard/team/`
+- `/review/` (tenant-scoped list for non-super admins)
+
+### 7.3 Customer Verification
 - `/customer/start/`
 - `/verify/?tenant_slug=<slug>&customer_id=<id>`
 - `/verify/start/<token>/`
 - `/liveness?session_id=<uuid>`
 
-### API Endpoints
+### 7.4 API
 - `/session/start`
 - `/capture/`
 - `/session/submit`
+- `/verify/submit/`
 - `/liveness-result`
 - `/start-liveness/`
 - `/check-liveness/`
 - `/cancel-liveness/`
 
-### Temporary Debug
-- `/bug/liveness/?tenant_slug=<slug>&autostart=1`
-
----
-
-## 8) How the Verification Flow Works
-
-Frontend flow in `kyc/static/js/main.js`:
+## 8) Verification Flow (Current)
+Frontend (`kyc/static/js/main.js`):
 1. Start session (`/session/start`)
-2. Document capture (front/back)
-3. Thickness capture (tilt)
-4. Liveness popup (`/liveness`)
-5. Selfie capture
-6. Submit (`/session/submit` then `/verify/submit/`)
+2. Capture document front/back
+3. Capture tilt/thickness frames
+4. Run liveness
+5. Capture selfie
+6. Submit (`/session/submit`)
+7. Verify (`/verify/submit/`)
 
-Captured images are uploaded through `/capture/` and stored under `MEDIA_ROOT` (for example `media/front_...jpg`, `media/back_...jpg`).
+Backend (`verify_kyc`):
+1. Resolve session/tenant
+2. Extract face from front ID image
+3. Compare with selfie using DeepFace models
+4. Compute identity assist (initial fallback mode without OCR)
+5. Run physical card checks
+6. Persist session verification metrics
+7. Queue OCR job if enabled
+8. Return response immediately (customer does not wait for OCR)
 
-Derived face crops used during verification are also stored under `MEDIA_ROOT/extracted_faces/`.
+Important:
+- Customer completion step intentionally does not expose internal AI metrics.
+- Final `review_status` is manual only (`pending/approved/rejected/needs_info`).
 
----
+## 9) Async OCR Queue Behavior
+Implemented in `kyc/services/mistral_ai.py`.
 
-## 9) Bootstrap Data for Testing
+- Uses a background worker thread with a priority queue.
+- Queue supports delayed retries.
+- 429 responses trigger queue re-try with exponential backoff.
+- `document_data.ai_document_extraction.status` transitions:
+  - `queued`
+  - `rate_limited_retry`
+  - `completed`
 
-### Option A: Sign up a new tenant owner
-- Go to `/accounts/signup/`
-- Creates tenant + owner user
+When OCR completes, worker updates:
+- `document_data.ai_document_extraction`
+- `document_data.identity_assist` (recomputed in `with_ocr` mode)
 
-### Option B: Use platform dashboard
-- Login as super admin
-- Go to `/admin/dashboard/`
-- Create tenant + owner from UI
+## 10) Reviewer UX
+`kyc/templates/kyc/admin_session_detail.html` includes:
+- Click-to-preview large images in a modal
+- `Open in new tab` fallback for full-size image
+- `Esc` and outside-click modal close
 
-Then open tenant dashboard and create customer verification links.
+## 11) Public URL / ngrok Behavior
+Tenant-generated verification email links use runtime `.env` lookup (`PUBLIC_BASE_URL`) via helper in `kyc/views.py`.
 
----
+If links are wrong:
+1. Update `.env` `PUBLIC_BASE_URL`
+2. Restart Django server
+3. Generate/send a new link
 
-## 10) Common Issues + Fix Checklist
+Note: old emails keep old URLs.
 
-### Camera permission denied on phone
-- Use HTTPS (ngrok), not plain HTTP
-- Confirm browser camera permission is allowed
-- Close other tabs/apps using camera
-- Ensure liveness popup/tab is closed before selfie starts
+## 12) Troubleshooting
+### 12.1 `ERR_NGROK_3200`
+Meaning: ngrok endpoint is offline (dead tunnel URL).
+Fix: run ngrok again, update `PUBLIC_BASE_URL`, restart server, resend link.
 
-### ngrok command not working
-- Install ngrok and run:
-```bash
-ngrok http 8000
-```
+### 12.2 Mistral SSL error
+Example: `SSLCertVerificationError`.
+Fix options:
+- Ensure certifi installed
+- Set `MISTRAL_CA_BUNDLE` to a valid CA file path
+- Keep `MISTRAL_SSL_VERIFY=true` (preferred)
 
-### Static/CSS/JS changes not visible
-- Hard refresh browser
-- Check cache-busting query in template script/link tags
-- Confirm file loaded from `kyc/static/...`
+### 12.3 Mistral 429 (rate limit)
+Meaning: quota/throughput exceeded.
+System now retries automatically in queue.
+To reduce pressure:
+- Keep `MISTRAL_ENABLE_BACK_OCR=false`
+- Increase `MISTRAL_MIN_INTERVAL_SECONDS`
+- Increase `MISTRAL_QUEUE_RETRY_BASE_SECONDS`
 
-### `ModuleNotFoundError: django`
-- Activate venv first:
+### 12.4 Mistral 400 code 3050
+Meaning: missing/invalid `document_annotation_format` schema.
+Current code already sends required `json_schema`.
+If seen again, ensure latest code is deployed and server restarted.
+
+### 12.5 `ModuleNotFoundError: django`
+Use project venv:
 ```bash
 source .venv/bin/activate
 ```
-- Reinstall dependencies
 
-### CSRF/host issues on ngrok
-- Add ngrok domain in:
-  - `ALLOWED_HOSTS`
-  - `CSRF_TRUSTED_ORIGINS`
+## 13) Security / Domain Rules
+- AI output is assistance only, never final approval.
+- Do not log sensitive PII/images/secrets in plaintext.
+- Keep tenant isolation strict (`request.user.tenant` scope for non-platform users).
+- Maintain auditability of review state transitions.
 
----
-
-## 11) Where to Edit for UI/Flow Fixes
-- Main capture UI text/layout: `kyc/static/js/main.js`, `kyc/static/css/main.css`, `kyc/templates/kyc/index.html`
-- Liveness fullscreen and instructions: `kyc/templates/kyc/liveness.html`, `kyc/static/css/liveness.css`, `kyc/static/js/liveness.js`
-- Temp debug links/buttons:
-  - `kyc/views.py` (`bug_liveness_check`)
-  - `kyc/urls.py`
-  - `kyc/templates/kyc/tenant_dashboard.html`
-  - `kyc/templates/kyc/platform_dashboard.html`
-
----
-
-## 12) Minimal Daily Run Commands
+## 14) Daily Commands
 ```bash
 source .venv/bin/activate
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
-# new terminal:
+# separate terminal
 ngrok http 8000
 ```
-
-Use this README when debugging so we both reference the same flow and file map.

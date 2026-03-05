@@ -57,13 +57,58 @@
                     <p class="text-slate-600 mt-1 dark:text-slate-400">Your customers, verification sessions, and review queue</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
-                    <button id="theme-toggle" type="button" class="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Toggle theme">
-                        <span data-theme-label>Theme</span>
-                    </button>
-                    <a href="/bug/liveness/?tenant_slug={{ tenant.slug }}&autostart=1" class="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 hover:bg-amber-100 dark:border-amber-700/40 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/40">Temp: Liveness Debug</a>
-                    <a href="/dashboard/team/" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800">Manage Team</a>
-                    <a href="/review/" class="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-200">Review Queue</a>
-                    <a href="/accounts/logout/" class="text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">Logout</a>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <a href="/dashboard/team/" class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Manage Team</a>
+                        <a href="/review/" class="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-200">Review Queue</a>
+                    </div>
+                    <div class="relative" id="account-menu-wrap">
+                        <button
+                            id="account-menu-toggle"
+                            type="button"
+                            class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                        >
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                                {{ request.user.email|slice:":1"|upper }}
+                            </span>
+                            <span>{{ request.user.first_name|default:"Account" }}</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">▼</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="account-menu-row" class="mt-3 hidden justify-end fade-up">
+                <div
+                    id="account-menu-panel"
+                    class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/60 dark:border-slate-700 dark:bg-slate-900 dark:shadow-slate-950/60"
+                    role="menu"
+                    aria-label="Account menu"
+                >
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/70">
+                        <div class="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">Signed in as</div>
+                        <div class="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">{{ request.user.first_name|default:request.user.email }}</div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">{{ request.user.email }}</div>
+                    </div>
+                    <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700"></div>
+                    <div class="space-y-1">
+                        <a href="/accounts/password/change/" class="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" role="menuitem">
+                            Settings
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Open</span>
+                        </a>
+                        <button id="theme-toggle" type="button" class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" role="menuitem">
+                            <span>Theme</span>
+                            <span data-theme-label class="text-xs text-slate-500 dark:text-slate-400">Light</span>
+                        </button>
+                        <a href="/accounts/logout/" class="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40" role="menuitem">
+                            Log Out
+                            <span class="text-xs text-rose-500 dark:text-rose-400">Exit</span>
+                        </a>
+                    </div>
+                    <div class="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                        <a href="/bug/liveness/?tenant_slug={{ tenant.slug }}&autostart=1" class="block rounded-lg px-3 py-2 text-xs text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40">Temp: Liveness Debug</a>
+                    </div>
                 </div>
             </div>
 
@@ -159,6 +204,10 @@
                                 Invite or manage team
                                 <span class="text-xs text-slate-500 dark:text-slate-400">Go</span>
                             </a>
+                            <a href="/accounts/password/change/" class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800">
+                                Change your password
+                                <span class="text-xs text-slate-500 dark:text-slate-400">Go</span>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -188,6 +237,10 @@
 
             const toggle = document.getElementById("theme-toggle");
             const label = document.querySelector("[data-theme-label]");
+            const accountToggle = document.getElementById("account-menu-toggle");
+            const accountRow = document.getElementById("account-menu-row");
+            const accountPanel = document.getElementById("account-menu-panel");
+            const accountWrap = document.getElementById("account-menu-wrap");
 
             function setLabel() {
                 const isDark = document.documentElement.classList.contains("dark");
@@ -202,6 +255,41 @@
                     document.documentElement.classList.toggle("dark", !isDark);
                     localStorage.setItem("theme", isDark ? "light" : "dark");
                     setLabel();
+                });
+            }
+
+            if (accountToggle && accountRow && accountPanel && accountWrap) {
+                function closeAccountMenu() {
+                    accountRow.classList.add("hidden");
+                    accountRow.classList.remove("flex");
+                    accountToggle.setAttribute("aria-expanded", "false");
+                }
+
+                function openAccountMenu() {
+                    accountRow.classList.remove("hidden");
+                    accountRow.classList.add("flex");
+                    accountToggle.setAttribute("aria-expanded", "true");
+                }
+
+                accountToggle.addEventListener("click", function () {
+                    const isHidden = accountRow.classList.contains("hidden");
+                    if (isHidden) {
+                        openAccountMenu();
+                    } else {
+                        closeAccountMenu();
+                    }
+                });
+
+                document.addEventListener("click", function (event) {
+                    if (!accountWrap.contains(event.target) && !accountRow.contains(event.target)) {
+                        closeAccountMenu();
+                    }
+                });
+
+                document.addEventListener("keydown", function (event) {
+                    if (event.key === "Escape") {
+                        closeAccountMenu();
+                    }
                 });
             }
 

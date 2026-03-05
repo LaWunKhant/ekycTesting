@@ -5,10 +5,11 @@ from urllib.parse import urlsplit
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def load_dotenv_file(path):
+def load_dotenv_file(path, force_keys=None):
     """Minimal .env loader so local DB config works without extra dependencies."""
     if not path.exists():
         return
+    force_keys = set(force_keys or [])
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -20,7 +21,10 @@ def load_dotenv_file(path):
             value.startswith("'") and value.endswith("'")
         ):
             value = value[1:-1]
-        os.environ.setdefault(key, value)
+        if key in force_keys:
+            os.environ[key] = value
+        else:
+            os.environ.setdefault(key, value)
 
 
 def env_bool(name, default=False):
@@ -30,7 +34,19 @@ def env_bool(name, default=False):
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-load_dotenv_file(BASE_DIR / ".env")
+def env_float(name, default=0.0):
+    value = os.getenv(name)
+    if value is None:
+        return float(default)
+    try:
+        return float(value.strip())
+    except ValueError:
+        return float(default)
+
+
+# `PUBLIC_BASE_URL` must follow `.env` for customer email links.
+# Other vars preserve shell override behavior.
+load_dotenv_file(BASE_DIR / ".env", force_keys={"PUBLIC_BASE_URL"})
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = True
@@ -168,3 +184,17 @@ EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@localhost")
 SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+MISTRAL_BASE_URL = os.getenv("MISTRAL_BASE_URL", "https://api.mistral.ai/v1")
+MISTRAL_OCR_MODEL = os.getenv("MISTRAL_OCR_MODEL", "mistral-ocr-latest")
+MISTRAL_REQUEST_TIMEOUT = int(os.getenv("MISTRAL_REQUEST_TIMEOUT", "25"))
+MISTRAL_SSL_VERIFY = env_bool("MISTRAL_SSL_VERIFY", default=True)
+MISTRAL_CA_BUNDLE = os.getenv("MISTRAL_CA_BUNDLE", "")
+MISTRAL_ENABLE_OCR = env_bool("MISTRAL_ENABLE_OCR", default=True)
+MISTRAL_ENABLE_BACK_OCR = env_bool("MISTRAL_ENABLE_BACK_OCR", default=False)
+MISTRAL_MAX_RETRIES = int(os.getenv("MISTRAL_MAX_RETRIES", "2"))
+MISTRAL_RETRY_BASE_SECONDS = env_float("MISTRAL_RETRY_BASE_SECONDS", default=1.0)
+MISTRAL_MIN_INTERVAL_SECONDS = env_float("MISTRAL_MIN_INTERVAL_SECONDS", default=1.0)
+MISTRAL_QUEUE_MAX_ATTEMPTS = int(os.getenv("MISTRAL_QUEUE_MAX_ATTEMPTS", "6"))
+MISTRAL_QUEUE_RETRY_BASE_SECONDS = env_float("MISTRAL_QUEUE_RETRY_BASE_SECONDS", default=30.0)

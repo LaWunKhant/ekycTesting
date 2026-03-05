@@ -1,5 +1,7 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
 from django.middleware.csrf import get_token
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
@@ -78,6 +80,40 @@ def home_redirect(request):
 def logout_view(request):
     logout(request)
     return redirect("login")
+
+
+@login_required
+@csrf_protect
+def password_change_view(request):
+    success = False
+    if request.method == "POST":
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            success = True
+            form = PasswordChangeForm(request.user)
+    else:
+        form = PasswordChangeForm(request.user)
+
+    for field in form.fields.values():
+        field.widget.attrs.update({
+            "class": "mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none",
+        })
+
+    next_url = None
+    if request.user.is_platform_admin():
+        next_url = "platform_dashboard"
+    elif request.user.tenant:
+        next_url = "tenant_dashboard"
+
+    context = {
+        "form": form,
+        "success": success,
+        "next_url_name": next_url,
+        "tenant_slug": request.user.tenant.slug if request.user.tenant else "",
+    }
+    return render(request, "registration/password_change.html", context)
 
 
 @csrf_protect

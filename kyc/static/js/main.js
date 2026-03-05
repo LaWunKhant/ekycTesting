@@ -1170,14 +1170,7 @@ function showCompletion(data) {
         icon.textContent    = "OK";
         titleEl.textContent = tKyc(KYC_COMPLETION_TEXT, "submissionReceived", "Submission received");
         msgEl.textContent   = tKyc(KYC_COMPLETION_TEXT, "submittedReviewSoon", "Your verification is submitted. Our team will review it soon.");
-        detEl.innerHTML = `<div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-700">
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "aiCheck", "AI check")}:</strong> ${data.verified?tKyc(KYC_COMPLETION_TEXT, "verified", "Verified"):tKyc(KYC_COMPLETION_TEXT, "needsReview", "Needs review")}</div>
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "confidence", "Confidence")}:</strong> ${data.confidence?data.confidence.toFixed(1)+"%":tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "liveness", "Liveness")}:</strong> ${livenessCompleted?tKyc(KYC_COMPLETION_TEXT, "completed", "Completed"):tKyc(KYC_COMPLETION_TEXT, "skipped", "Skipped")}</div>
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "detectedCard", "Detected card")}:</strong> ${data.detected_card?.label||flowData.document_type||tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "cardPhysicalCheck", "Card physical check")}:</strong> ${data.physical_card_check?.verified?tKyc(KYC_COMPLETION_TEXT, "passed", "Passed"):tKyc(KYC_COMPLETION_TEXT, "needsReview", "Needs review")}</div>
-            <div><strong>${tKyc(KYC_COMPLETION_TEXT, "physicalScore", "Physical score")}:</strong> ${data.physical_card_check?.physical_card_score?data.physical_card_check.physical_card_score.toFixed(1)+"%":tKyc(KYC_COMPLETION_TEXT, "na", "N/A")}</div>
-        </div>`;
+        detEl.innerHTML = "";
     } else {
         icon.textContent    = tKyc(KYC_COMPLETION_TEXT, "review", "Review");
         titleEl.textContent = tKyc(KYC_COMPLETION_TEXT, "submissionReceived", "Submission received");

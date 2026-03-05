@@ -1,24 +1,24 @@
 # AGENTS.md
 
 ## Project Context
-- Stack: Django project (`manage.py`, `myproject/settings.py`) configured for MySQL via environment variables.
-- `myproject/settings.py` is MySQL-only.
-- Local database file artifacts are not used by this project.
+- Stack: Django project (`manage.py`, `myproject/settings.py`) with MySQL only.
+- Local DB file artifacts are not used.
+- eKYC flow includes manual review, DeepFace matching, and asynchronous Mistral OCR assist.
 
-## What To Check First (before edits)
-- Search for project-level database/backend references (exclude `.venv/` noise).
-- Confirm database backend in `myproject/settings.py`.
-- Confirm `README.md` database/setup docs match the current backend (MySQL-only).
-- Check `git status --short` because this repo may already have user changes.
+## What To Check First (Before Edits)
+- Check repo state: `git status --short`.
+- Confirm DB backend remains MySQL in `myproject/settings.py`.
+- Search project references excluding `.venv/` noise.
+- Keep `README.md` aligned with any behavior/config changes.
 
-## Backend Consistency Checks
-- Ignore dependency/package noise inside `.venv/` (third-party packages).
-- Check docs (`README.md`) for outdated database/backend references after backend changes.
+## Backend Consistency
+- Ignore dependency/package noise under `.venv/`.
+- Do not introduce non-MySQL database branches.
+- Keep settings/env driven; avoid hardcoded credentials.
 
 ## MySQL Configuration Notes
-- MySQL branch is selected when `DB_ENGINE=mysql`.
-- App is intended to run with MySQL only.
-- Expected env vars used in `myproject/settings.py`:
+- `DB_ENGINE` must be `mysql`.
+- Expected env keys:
   - `DB_ENGINE`
   - `DB_NAME`
   - `DB_USER`
@@ -26,38 +26,41 @@
   - `DB_HOST`
   - `DB_PORT`
 
-## eKYC Domain Guide (Project-Specific)
-- Treat verification state changes as sensitive operations; preserve auditability (status, timestamps, reviewer actions, reasons).
-- Do not silently overwrite verification outcomes (`approved`, `rejected`, `needs_info`, `pending`) without checking the existing state and business intent.
-- Keep tenant isolation strict: always filter tenant data by `request.user.tenant` (unless in platform/super admin views).
-- For upload/capture flows, validate ownership and tenant linkage before saving images or updating `VerificationSession`.
-- Prefer explicit server-side validation for customer-facing API inputs even if frontend JS already validates.
-- When sending emails (verification links, temp passwords), keep a safe fallback UX if mail delivery fails (show actionable message to admin).
-- Avoid logging sensitive PII/images/secrets in plain text (document images, passwords, tokens, full IDs).
+## eKYC Domain Rules
+- Treat review state transitions as sensitive and auditable.
+- Never silently overwrite review outcomes (`pending`, `approved`, `rejected`, `needs_info`).
+- Keep tenant isolation strict (`request.user.tenant`) unless platform admin path explicitly allows cross-tenant access.
+- Validate ownership/tenant linkage before any image/session update.
+- Avoid logging sensitive PII or secrets.
+
+## AI/OCR Rules (Project-Specific)
+- AI is decision support only; final approval remains manual.
+- Persist AI outputs in auditable fields (`VerificationSession.document_data`).
+- OCR runs asynchronously through queue worker; customer submit path must stay non-blocking.
+- Handle Mistral 429 with queue retry/backoff (do not block customer requests).
+- Keep front OCR default enabled; back OCR default disabled unless explicitly needed.
 
 ## Django Best Practices (This Repo)
-- Keep business logic out of templates; use views/forms/services for validation and state transitions.
-- Reuse `forms.Form` / model validation for admin POST actions instead of parsing raw `request.POST` everywhere.
-- Use helper functions for repeated behavior (password generation, email sending, permission checks).
-- Prefer `select_related` / `prefetch_related` for dashboard lists to avoid N+1 queries.
-- Return clear user-facing errors for admin actions (create tenant, reset password, review actions) and avoid generic failures.
-- Wrap multi-step writes in transactions when partial saves would leave inconsistent state (e.g., tenant + admin user creation + side effects).
-- Keep settings and secrets environment-driven; avoid adding new hardcoded credentials/URLs.
+- Keep business logic in views/services/forms, not templates.
+- Use reusable helpers for repeated actions (permission checks, link building, OCR enqueue, etc.).
+- Prefer `select_related` / `prefetch_related` where list/detail pages need related models.
+- Return explicit operational errors for admin actions.
+- Use transactions for multi-step writes where partial failure causes inconsistency.
+- For password changes, use `PasswordChangeForm` + `update_session_auth_hash`.
 
-## Design Pattern Guide (UI / Templates)
-- Follow existing Tailwind component patterns from `kyc/templates/kyc/platform_dashboard.html` and related admin pages.
-- Reuse visual structures already present in the project: cards, alert banners, form spacing, button styles, and status chips.
-- Keep forms semantically correct (labels, input types, CSRF, error/success messages near the form).
-- For new admin/tenant pages, maintain responsive behavior (single-column mobile, multi-column desktop) consistent with current templates.
-- Prefer progressive enhancement: server-rendered Django views first, then add JS only for interactive/camera workflows.
-- Keep user messaging precise for operational actions (email sent, fallback shown, tenant created, review updated).
+## UI/Template Design Rules
+- Follow existing Tailwind patterns from platform/tenant pages.
+- Preserve responsive behavior (mobile single-column, desktop multi-column).
+- Keep action messages clear and operationally useful.
+- For review images, preserve full-size inspectability (modal/new-tab access).
 
-## Safe Working Style For This Repo
+## Safe Working Style
 - Prefer `find` + `grep` if `rg` is unavailable.
-- Make targeted edits only; avoid overwriting user changes in `myproject/settings.py`.
-- If changing DB config, explain whether the app remains MySQL-only.
-- For UI changes, reference existing Tailwind CSS patterns/classes in current templates (especially dashboard pages) to keep design consistent.
+- Make targeted edits; avoid clobbering existing user changes.
+- If changing runtime behavior/config, update `.env.example` and `README.md` in the same change.
+- If changing public link behavior, explicitly verify `PUBLIC_BASE_URL` handling.
 
-## Common Fixes To Consider (only with user confirmation)
-- Update `README.md` if database/setup docs are outdated.
-- Keep new frontend/admin UI changes aligned with existing Tailwind-based design patterns.
+## Common Follow-Up Fixes (With User Confirmation)
+- Tune OCR queue retry/backoff settings for quota constraints.
+- Tune physical card threshold/UX guidance when false negatives are frequent.
+- Expand reviewer UI surfacing of queued OCR state if needed.
