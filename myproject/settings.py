@@ -44,9 +44,24 @@ def env_float(name, default=0.0):
         return float(default)
 
 
-# `PUBLIC_BASE_URL` must follow `.env` for customer email links.
-# Other vars preserve shell override behavior.
-load_dotenv_file(BASE_DIR / ".env", force_keys={"PUBLIC_BASE_URL"})
+# `PUBLIC_BASE_URL` and `EMAIL_*` must follow `.env` for reliable link/email behavior.
+# This avoids stale exported shell values unexpectedly overriding SMTP configuration.
+load_dotenv_file(
+    BASE_DIR / ".env",
+    force_keys={
+        "PUBLIC_BASE_URL",
+        "EMAIL_BACKEND",
+        "EMAIL_HOST",
+        "EMAIL_HOST_USER",
+        "EMAIL_HOST_PASSWORD",
+        "EMAIL_PORT",
+        "EMAIL_USE_TLS",
+        "EMAIL_USE_SSL",
+        "EMAIL_TIMEOUT",
+        "DEFAULT_FROM_EMAIL",
+        "SERVER_EMAIL",
+    },
+)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = True

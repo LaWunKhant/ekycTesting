@@ -3,6 +3,7 @@ import json
 import os
 import itertools
 import queue
+import re
 import ssl
 import threading
 import time
@@ -22,6 +23,7 @@ _OCR_QUEUE = queue.PriorityQueue()
 _WORKER_THREAD = None
 _WORKER_LOCK = threading.Lock()
 _JOB_SEQ = itertools.count()
+_POSTAL_ONLY_RE = re.compile(r"^\s*〒?\s*\d{3}-?\d{4,}\s*$")
 
 
 def _json_dumps(payload):
@@ -33,6 +35,44 @@ def _safe_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return float(default)
+
+
+def _normalize_postal_code(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if len(digits) == 7:
+        return f"{digits[:3]}-{digits[3:]}"
+    return raw
+
+
+def _sanitize_address_fields(extracted):
+    address = str((extracted or {}).get("address") or "").strip()
+    postal_code = _normalize_postal_code((extracted or {}).get("postal_code"))
+    prefecture = str((extracted or {}).get("prefecture") or "").strip()
+    city = str((extracted or {}).get("city") or "").strip()
+    street_address = str((extracted or {}).get("street_address") or "").strip()
+    address_raw = str((extracted or {}).get("address_raw") or "").strip()
+
+    if not postal_code and _POSTAL_ONLY_RE.match(address):
+        postal_code = _normalize_postal_code(address)
+    if _POSTAL_ONLY_RE.match(address):
+        address = ""
+
+    if not address:
+        merged = " ".join(part for part in [prefecture, city, street_address] if part).strip()
+        if merged:
+            address = merged
+
+    return {
+        "address": address,
+        "postal_code": postal_code,
+        "prefecture": prefecture,
+        "city": city,
+        "street_address": street_address,
+        "address_raw": address_raw,
+    }
 
 
 def _parse_json_block(text):
@@ -70,7 +110,7 @@ def _build_ssl_context():
     return ssl.create_default_context(cafile=certifi.where())
 
 
-def _request_mistral_ocr(image_path, document_type):
+def _request_mistral_ocr(image_path, document_type, side_hint="unknown"):
     api_key = getattr(settings, "MISTRAL_API_KEY", "").strip()
     base_url = getattr(settings, "MISTRAL_BASE_URL", "https://api.mistral.ai/v1").rstrip("/")
     model = getattr(settings, "MISTRAL_OCR_MODEL", "mistral-ocr-latest").strip()
@@ -84,6 +124,11 @@ def _request_mistral_ocr(image_path, document_type):
     image_b64 = _to_base64(image_path)
     prompt = (
         "You are an eKYC OCR assistant. Extract document fields from the image.\n"
+        "Rules:\n"
+        "- Extract only what is visible.\n"
+        "- Never use MRZ/id-number/random digits as an address.\n"
+        "- If only postal code is visible, set address to empty string and set postal_code.\n"
+        "- For residence card back side, if multiple address history rows exist, use the latest/current row.\n"
         "Return strict JSON only with this schema:\n"
         "{"
         "\"full_name\":\"\","
@@ -92,11 +137,18 @@ def _request_mistral_ocr(image_path, document_type):
         "\"expiry_date\":\"\","
         "\"nationality\":\"\","
         "\"address\":\"\","
+        "\"postal_code\":\"\","
+        "\"prefecture\":\"\","
+        "\"city\":\"\","
+        "\"street_address\":\"\","
+        "\"address_raw\":\"\","
+        "\"residence_status\":\"\","
         "\"confidence\":0,"
         "\"notes\":\"\""
         "}\n"
         "confidence must be an integer from 0 to 100. "
-        f"Document type hint: {document_type or 'unknown'}."
+        f"Document type hint: {document_type or 'unknown'}. "
+        f"Image side hint: {side_hint or 'unknown'}."
     )
     payload = {
         "model": model,
@@ -119,6 +171,12 @@ def _request_mistral_ocr(image_path, document_type):
                         "expiry_date": {"type": "string"},
                         "nationality": {"type": "string"},
                         "address": {"type": "string"},
+                        "postal_code": {"type": "string"},
+                        "prefecture": {"type": "string"},
+                        "city": {"type": "string"},
+                        "street_address": {"type": "string"},
+                        "address_raw": {"type": "string"},
+                        "residence_status": {"type": "string"},
                         "confidence": {"type": "number"},
                         "notes": {"type": "string"},
                     },
@@ -196,19 +254,27 @@ def _request_mistral_ocr(image_path, document_type):
         }
 
     confidence = max(0.0, min(100.0, _safe_float(extracted.get("confidence"), default=0.0)))
+    address_fields = _sanitize_address_fields(extracted)
     return {
         "ok": True,
         "provider": "mistral",
         "model": model,
         "endpoint": "ocr",
         "document_type": document_type,
+        "side": side_hint or "unknown",
         "extracted": {
             "full_name": (extracted.get("full_name") or "").strip(),
             "date_of_birth": (extracted.get("date_of_birth") or "").strip(),
             "document_number": (extracted.get("document_number") or "").strip(),
             "expiry_date": (extracted.get("expiry_date") or "").strip(),
             "nationality": (extracted.get("nationality") or "").strip(),
-            "address": (extracted.get("address") or "").strip(),
+            "address": address_fields["address"],
+            "postal_code": address_fields["postal_code"],
+            "prefecture": address_fields["prefecture"],
+            "city": address_fields["city"],
+            "street_address": address_fields["street_address"],
+            "address_raw": address_fields["address_raw"],
+            "residence_status": (extracted.get("residence_status") or "").strip(),
             "notes": (extracted.get("notes") or page_markdown or "").strip(),
         },
         "confidence": confidence,
@@ -218,6 +284,55 @@ def _request_mistral_ocr(image_path, document_type):
 
 def _normalized_text(value):
     return " ".join(str(value or "").strip().lower().split())
+
+
+def _build_address_summary(front_result, back_result):
+    def _entry(result, source):
+        if not isinstance(result, dict) or not result.get("ok"):
+            return None
+        extracted = result.get("extracted") or {}
+        address = str(extracted.get("address") or "").strip()
+        if not address:
+            return None
+        return {
+            "source": source,
+            "address": address,
+            "confidence": max(0.0, min(100.0, _safe_float(result.get("confidence"), default=0.0))),
+        }
+
+    front_entry = _entry(front_result, "front")
+    back_entry = _entry(back_result, "back")
+    candidates = []
+    seen = set()
+    for entry in (front_entry, back_entry):
+        if not entry:
+            continue
+        normalized = _normalized_text(entry["address"])
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        candidates.append(entry)
+
+    selected = {"address": "", "source": ""}
+    if back_entry:
+        selected = {"address": back_entry["address"], "source": "back"}
+    elif front_entry:
+        selected = {"address": front_entry["address"], "source": "front"}
+
+    return {
+        "selected_address": selected["address"],
+        "selected_source": selected["source"],
+        "has_conflict": bool(front_entry and back_entry and _normalized_text(front_entry["address"]) != _normalized_text(back_entry["address"])),
+        "candidates": candidates,
+    }
+
+
+def _pick_identity_ocr_result(front_result, back_result):
+    if isinstance(front_result, dict) and front_result.get("ok"):
+        return front_result
+    if isinstance(back_result, dict) and back_result.get("ok"):
+        return back_result
+    return {}
 
 
 def build_identity_assist(face_similarity, liveness_verified, customer, ocr_result):
@@ -303,14 +418,14 @@ def _is_rate_limited(result):
     return ("http 429" in err) or ("rate limit" in err) or ('"code":"1300"' in details)
 
 
-def extract_with_mistral(image_path, document_type):
+def extract_with_mistral(image_path, document_type, side_hint="unknown"):
     max_retries = max(0, int(getattr(settings, "MISTRAL_MAX_RETRIES", 2)))
     retry_base = max(0.1, float(getattr(settings, "MISTRAL_RETRY_BASE_SECONDS", 1.0)))
 
     last_result = None
     for attempt in range(max_retries + 1):
         _respect_mistral_interval()
-        result = _request_mistral_ocr(image_path=image_path, document_type=document_type)
+        result = _request_mistral_ocr(image_path=image_path, document_type=document_type, side_hint=side_hint)
         last_result = result
         if result.get("ok"):
             return result
@@ -330,10 +445,10 @@ def _process_ocr_job(job):
     document_type = job.get("document_type")
     enable_back_ocr = bool(job.get("enable_back_ocr", False))
 
-    front_result = extract_with_mistral(front_path, document_type=document_type)
+    front_result = extract_with_mistral(front_path, document_type=document_type, side_hint="front")
     back_result = None
     if enable_back_ocr and back_path and os.path.exists(back_path):
-        back_result = extract_with_mistral(back_path, document_type=document_type)
+        back_result = extract_with_mistral(back_path, document_type=document_type, side_hint="back")
 
     rate_limited = _is_rate_limited(front_result) or _is_rate_limited(back_result or {})
     queue_attempt = int(job.get("queue_attempt", 0))
@@ -347,11 +462,13 @@ def _process_ocr_job(job):
 
     if rate_limited and queue_attempt < queue_max_attempts:
         retry_in = queue_retry_base * (2 ** queue_attempt)
+        address_summary = _build_address_summary(front_result, back_result)
         session_document_data = session.document_data or {}
         session_document_data["ai_document_extraction"] = {
             "status": "rate_limited_retry",
             "front": front_result,
             "back": back_result,
+            "address_summary": address_summary,
             "queued_at": job.get("queued_at"),
             "processed_at": datetime.now(timezone.utc).isoformat(),
             "retry_in_seconds": round(retry_in, 2),
@@ -374,17 +491,19 @@ def _process_ocr_job(job):
         )
         return
 
+    address_summary = _build_address_summary(front_result, back_result)
     identity_assist = build_identity_assist(
         face_similarity=session.verify_similarity,
         liveness_verified=session.liveness_verified,
         customer=session.customer,
-        ocr_result=(front_result if front_result.get("ok") else {}),
+        ocr_result=_pick_identity_ocr_result(front_result, back_result),
     )
     session_document_data = session.document_data or {}
     session_document_data["ai_document_extraction"] = {
         "status": "completed",
         "front": front_result,
         "back": back_result,
+        "address_summary": address_summary,
         "queued_at": job.get("queued_at"),
         "processed_at": datetime.now(timezone.utc).isoformat(),
     }

@@ -2,6 +2,8 @@
 
 This README is the single source of truth for setup, runtime, troubleshooting, and recent architecture decisions.
 
+Need a faster team handoff doc? See `DEVELOPER_OPERATIONS_GUIDE.md`.
+
 ## 1) Project Overview
 MoonKYC is a Django-based multi-tenant eKYC platform with:
 - Platform admin workspace (`/admin/dashboard/`)
@@ -55,6 +57,8 @@ pip install django opencv-python numpy deepface tf-keras certifi
 ```bash
 cp .env.example .env
 ```
+
+Note: `.env` values for `PUBLIC_BASE_URL` and `EMAIL_*` are loaded with priority over stale shell exports to keep links/SMTP behavior deterministic.
 
 Required database fields:
 ```env
@@ -186,6 +190,19 @@ Implemented in `kyc/services/mistral_ai.py`.
   - `queued`
   - `rate_limited_retry`
   - `completed`
+- `document_data.ai_document_extraction.address_summary` now stores merged address output:
+  - `selected_address`
+  - `selected_source` (`front` or `back`)
+  - `has_conflict` (true when front/back addresses differ)
+  - `candidates` (deduplicated list with source and confidence)
+- OCR `front/back.extracted` also includes structured address fields:
+  - `address` (full address candidate; never postal-code-only)
+  - `postal_code`
+  - `prefecture`
+  - `city`
+  - `street_address`
+  - `address_raw`
+  - `residence_status`
 
 When OCR completes, worker updates:
 - `document_data.ai_document_extraction`
@@ -227,12 +244,18 @@ To reduce pressure:
 - Increase `MISTRAL_MIN_INTERVAL_SECONDS`
 - Increase `MISTRAL_QUEUE_RETRY_BASE_SECONDS`
 
-### 12.4 Mistral 400 code 3050
+### 12.4 Front vs Back address differences
+If your card back has the latest address:
+- Set `MISTRAL_ENABLE_BACK_OCR=true`
+- The OCR worker stores both addresses under `document_data.ai_document_extraction.address_summary.candidates`
+- `selected_address` prefers back-side OCR when available, so reviewer tools can treat it as the current-address candidate
+
+### 12.5 Mistral 400 code 3050
 Meaning: missing/invalid `document_annotation_format` schema.
 Current code already sends required `json_schema`.
 If seen again, ensure latest code is deployed and server restarted.
 
-### 12.5 `ModuleNotFoundError: django`
+### 12.6 `ModuleNotFoundError: django`
 Use project venv:
 ```bash
 source .venv/bin/activate
