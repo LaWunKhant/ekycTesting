@@ -3,6 +3,7 @@
 This README is the single source of truth for setup, runtime, troubleshooting, and recent architecture decisions.
 
 Need a faster team handoff doc? See `DEVELOPER_OPERATIONS_GUIDE.md`.
+Japanese-style design document is available at `SYSTEM_DESIGN_JP.md`.
 
 ## 1) Project Overview
 MoonKYC is a Django-based multi-tenant eKYC platform with:
@@ -203,10 +204,15 @@ Implemented in `kyc/services/mistral_ai.py`.
   - `street_address`
   - `address_raw`
   - `residence_status`
+- OCR `front/back` metadata now includes:
+  - `raw_confidence` (provider reported score)
+  - `confidence` (post-validation adjusted score)
+  - `quality_flags` (`missing_core_fields`, `address_missing`, `address_only_postal`, `address_low_detail`, `confidence_penalty`)
 
 When OCR completes, worker updates:
 - `document_data.ai_document_extraction`
 - `document_data.identity_assist` (recomputed in `with_ocr` mode)
+- `identity_assist.recommendation` can be elevated to `needs_info_manual_review` when OCR quality issues indicate missing critical data
 
 ## 10) Reviewer UX
 `kyc/templates/kyc/admin_session_detail.html` includes:

@@ -24,6 +24,7 @@ _WORKER_THREAD = None
 _WORKER_LOCK = threading.Lock()
 _JOB_SEQ = itertools.count()
 _POSTAL_ONLY_RE = re.compile(r"^\s*〒?\s*\d{3}-?\d{4,}\s*$")
+_ADDRESS_LOW_DETAIL_RE = re.compile(r"^[\d\s\-〒,./]+$")
 
 
 def _json_dumps(payload):
@@ -73,6 +74,65 @@ def _sanitize_address_fields(extracted):
         "street_address": street_address,
         "address_raw": address_raw,
     }
+
+
+def _assess_extraction_quality(extracted, side_hint):
+    side = str(side_hint or "unknown").strip().lower()
+    missing_core_fields = []
+    required_fields = ["document_number", "expiry_date"]
+    if side == "front":
+        required_fields = ["full_name", "date_of_birth", "document_number", "expiry_date"]
+    for field in required_fields:
+        if not str((extracted or {}).get(field) or "").strip():
+            missing_core_fields.append(field)
+
+    address = str((extracted or {}).get("address") or "").strip()
+    postal_code = str((extracted or {}).get("postal_code") or "").strip()
+    city = str((extracted or {}).get("city") or "").strip()
+    street_address = str((extracted or {}).get("street_address") or "").strip()
+    prefecture = str((extracted or {}).get("prefecture") or "").strip()
+
+    address_missing = not bool(address)
+    address_only_postal = bool(postal_code) and not any([address, city, street_address, prefecture])
+    address_low_detail = bool(address) and (_ADDRESS_LOW_DETAIL_RE.match(address) is not None)
+
+    penalty = 0
+    penalty += min(30, len(missing_core_fields) * 8)
+    if address_only_postal:
+        penalty += 15
+    if address_low_detail:
+        penalty += 10
+
+    return {
+        "missing_core_fields": missing_core_fields,
+        "address_missing": address_missing,
+        "address_only_postal": address_only_postal,
+        "address_low_detail": address_low_detail,
+        "confidence_penalty": penalty,
+    }
+
+
+def _gather_quality_issues(front_result, back_result, address_summary, back_ocr_enabled):
+    issues = []
+    front_flags = ((front_result or {}).get("quality_flags") or {}) if isinstance(front_result, dict) else {}
+    back_flags = ((back_result or {}).get("quality_flags") or {}) if isinstance(back_result, dict) else {}
+
+    if front_flags.get("missing_core_fields"):
+        issues.append("front_missing_core_fields")
+    if front_flags.get("address_low_detail"):
+        issues.append("front_low_detail_address")
+    if front_flags.get("address_only_postal"):
+        issues.append("front_postal_only_address")
+
+    if back_ocr_enabled:
+        if not (isinstance(back_result, dict) and back_result.get("ok")):
+            issues.append("back_ocr_unavailable")
+        elif back_flags.get("address_missing"):
+            issues.append("back_missing_address")
+
+    if not str((address_summary or {}).get("selected_address") or "").strip():
+        issues.append("no_selected_address")
+    return issues
 
 
 def _parse_json_block(text):
@@ -253,8 +313,23 @@ def _request_mistral_ocr(image_path, document_type, side_hint="unknown"):
             "confidence": 25,
         }
 
-    confidence = max(0.0, min(100.0, _safe_float(extracted.get("confidence"), default=0.0)))
+    raw_confidence = max(0.0, min(100.0, _safe_float(extracted.get("confidence"), default=0.0)))
     address_fields = _sanitize_address_fields(extracted)
+    quality_flags = _assess_extraction_quality(
+        {
+            "full_name": (extracted.get("full_name") or "").strip(),
+            "date_of_birth": (extracted.get("date_of_birth") or "").strip(),
+            "document_number": (extracted.get("document_number") or "").strip(),
+            "expiry_date": (extracted.get("expiry_date") or "").strip(),
+            "address": address_fields["address"],
+            "postal_code": address_fields["postal_code"],
+            "prefecture": address_fields["prefecture"],
+            "city": address_fields["city"],
+            "street_address": address_fields["street_address"],
+        },
+        side_hint=side_hint,
+    )
+    confidence = max(0.0, min(100.0, raw_confidence - _safe_float(quality_flags.get("confidence_penalty"), default=0.0)))
     return {
         "ok": True,
         "provider": "mistral",
@@ -277,6 +352,8 @@ def _request_mistral_ocr(image_path, document_type, side_hint="unknown"):
             "residence_status": (extracted.get("residence_status") or "").strip(),
             "notes": (extracted.get("notes") or page_markdown or "").strip(),
         },
+        "quality_flags": quality_flags,
+        "raw_confidence": raw_confidence,
         "confidence": confidence,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -335,7 +412,7 @@ def _pick_identity_ocr_result(front_result, back_result):
     return {}
 
 
-def build_identity_assist(face_similarity, liveness_verified, customer, ocr_result):
+def build_identity_assist(face_similarity, liveness_verified, customer, ocr_result, quality_issues=None):
     ocr_data = (ocr_result or {}).get("extracted") or {}
     has_ocr = bool((ocr_result or {}).get("ok"))
     face_score = max(0.0, min(100.0, _safe_float(face_similarity, default=0.0)))
@@ -384,6 +461,16 @@ def build_identity_assist(face_similarity, liveness_verified, customer, ocr_resu
     else:
         recommendation = "low_match_investigate"
 
+    normalized_issues = [issue for issue in (quality_issues or []) if issue]
+    requires_additional_info = bool(
+        normalized_issues and any(
+            issue in {"no_selected_address", "back_ocr_unavailable", "front_missing_core_fields", "back_missing_address"}
+            for issue in normalized_issues
+        )
+    )
+    if requires_additional_info:
+        recommendation = "needs_info_manual_review"
+
     return {
         "score": round(combined, 2),
         "face_similarity_score": round(face_score, 2),
@@ -393,6 +480,8 @@ def build_identity_assist(face_similarity, liveness_verified, customer, ocr_resu
         "name_match": bool(name_match),
         "dob_match": bool(dob_match),
         "recommendation": recommendation,
+        "quality_issues": normalized_issues,
+        "requires_additional_info": requires_additional_info,
         "scoring_mode": "with_ocr" if has_ocr else "fallback_without_ocr",
     }
 
@@ -492,11 +581,18 @@ def _process_ocr_job(job):
         return
 
     address_summary = _build_address_summary(front_result, back_result)
+    quality_issues = _gather_quality_issues(
+        front_result=front_result,
+        back_result=back_result,
+        address_summary=address_summary,
+        back_ocr_enabled=enable_back_ocr,
+    )
     identity_assist = build_identity_assist(
         face_similarity=session.verify_similarity,
         liveness_verified=session.liveness_verified,
         customer=session.customer,
         ocr_result=_pick_identity_ocr_result(front_result, back_result),
+        quality_issues=quality_issues,
     )
     session_document_data = session.document_data or {}
     session_document_data["ai_document_extraction"] = {

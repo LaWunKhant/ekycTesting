@@ -735,7 +735,7 @@ def review_session_detail(request, session_id):
     if request.user.is_superuser:
         context["back_link"] = redirect("review_sessions").url
     else:
-        context["back_link"] = redirect("tenant_dashboard", tenant_slug=request.user.tenant.slug).url
+        context["back_link"] = redirect("tenant_sessions", tenant_slug=request.user.tenant.slug).url
     return render(request, "kyc/admin_session_detail.html", context)
 
 
@@ -976,6 +976,11 @@ def verify_kyc(request):
                 id=session_id, tenant=tenant
             ).first()
             card_detection, tilt_paths = _hydrate_card_context(session_for_identity, tilt_images, tilt_paths)
+            # Keep back OCR available even if frontend payload misses back_image.
+            if not back_path and session_for_identity is not None:
+                back_path = _resolve_media_path(
+                    session_for_identity.document_back_url or session_for_identity.back_image
+                )
 
         if not os.path.exists(front_path):
             return JsonResponse({"success": False, "error": f"Front image not found: {front_path}"}, status=400)
