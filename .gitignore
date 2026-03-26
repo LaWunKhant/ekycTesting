@@ -28,3 +28,18 @@ __pycache__/
 
 # OS noise
 .DS_Store
+
+# Laravel tenant workspace
+/moon_ekyc/.env
+/moon_ekyc/.env.local
+/moon_ekyc/.env.*.local
+/moon_ekyc/node_modules/
+/moon_ekyc/vendor/
+/moon_ekyc/public/build/
+/moon_ekyc/storage/logs/
+/moon_ekyc/storage/framework/cache/
+/moon_ekyc/storage/framework/sessions/
+/moon_ekyc/storage/framework/views/
+/moon_ekyc/bootstrap/cache/*.php
+/moon_ekyc/database/database.sqlite
+/moon_ekyc/public/hot
