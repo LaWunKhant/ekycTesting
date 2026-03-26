@@ -3,9 +3,9 @@
 This guide is a fast reference for engineers and reviewers to understand core features and resolve common production issues quickly.
 
 ## 1) Core Features
-- Multi-tenant architecture with strict tenant isolation.
+- Tenant-backed verification architecture with strict tenant isolation on customer/session data.
 - Platform admin area for cross-tenant oversight.
-- Tenant dashboard for customer onboarding and verification link generation.
+- Super-admin-only Django login surface.
 - Customer eKYC journey:
   - profile/address input
   - document capture (front/back)
@@ -19,9 +19,9 @@ This guide is a fast reference for engineers and reviewers to understand core fe
 - Manual review is final authority (`pending`, `approved`, `rejected`, `needs_info`).
 
 ## 2) Key Modules
-- `accounts/`: auth, signup/login/logout/password management.
+- `accounts/`: super admin auth, login/logout/password management.
 - `kyc/models.py`: `Tenant`, `Customer`, `VerificationSession`, `VerificationLink`.
-- `kyc/views.py`: tenant/admin pages and verification orchestration.
+- `kyc/views.py`: admin pages and verification orchestration.
 - `kyc/api_views.py`: API endpoints for capture/session/submit.
 - `kyc/services/mistral_ai.py`: OCR client, retry logic, queue worker, extracted document fields.
 - `kyc/services/card_physical_check.py`: thickness/depth/edge card checks.
@@ -30,7 +30,7 @@ This guide is a fast reference for engineers and reviewers to understand core fe
 ## 3) Data Ownership Rules
 - Final review decision is always manual.
 - Never overwrite review status silently.
-- Non-platform users must remain tenant-scoped (`request.user.tenant`).
+- No tenant-facing login/UI exists in this repo; tenant linkage is still required for verification records and link resolution.
 - OCR/AI output must be stored in auditable fields (`VerificationSession.document_data`).
 - Sensitive PII must not be logged.
 

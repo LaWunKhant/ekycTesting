@@ -6,15 +6,15 @@ Need a faster team handoff doc? See `DEVELOPER_OPERATIONS_GUIDE.md`.
 Japanese-style design document is available at `SYSTEM_DESIGN_JP.md`.
 
 ## 1) Project Overview
-MoonKYC is a Django-based multi-tenant eKYC platform with:
+MoonKYC is a Django-based eKYC backend with:
 - Platform admin workspace (`/admin/dashboard/`)
-- Tenant workspace (`/<tenant_slug>/dashboard/`)
 - Customer verification flow (document capture, liveness, selfie, submit)
 - Manual review queue for final approval/rejection
 - AI assist (face similarity + optional Mistral OCR) with strict human-in-the-loop final decision
+- Tenant-backed customer/session isolation for verification routing
 
 Core apps:
-- `accounts`: authentication, login/logout/signup/password change
+- `accounts`: super admin authentication, login/logout/password change
 - `kyc`: tenants/customers/sessions, verification APIs, review workflows, OCR queue integration
 
 ## 2) Stack
@@ -123,9 +123,9 @@ PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
 ## 6) Authentication and Account Flows
 - Login: `/accounts/login/`
 - Logout: `/accounts/logout/`
-- Signup (tenant owner bootstrap): `/accounts/signup/`
 - Password change: `/accounts/password/change/`
 
+Only super admin users can sign in to this Django app. Tenant-facing dashboard flows were removed from this repo and are handled externally.
 Password changes use Django `PasswordChangeForm` and keep session active via `update_session_auth_hash`.
 
 ## 7) Route Map
@@ -135,19 +135,13 @@ Password changes use Django `PasswordChangeForm` and keep session active via `up
 - `/admin/tenants/<uuid>/...`
 - `/review/`
 
-### 7.2 Tenant
-- `/<tenant_slug>/dashboard/`
-- `/<tenant_slug>/sessions/`
-- `/dashboard/team/`
-- `/review/` (tenant-scoped list for non-super admins)
-
-### 7.3 Customer Verification
+### 7.2 Customer Verification
 - `/customer/start/`
 - `/verify/?tenant_slug=<slug>&customer_id=<id>`
 - `/verify/start/<token>/`
 - `/liveness?session_id=<uuid>`
 
-### 7.4 API
+### 7.3 API
 - `/session/start`
 - `/capture/`
 - `/session/submit`
@@ -221,14 +215,8 @@ When OCR completes, worker updates:
 - `Esc` and outside-click modal close
 
 ## 11) Public URL / ngrok Behavior
-Tenant-generated verification email links use runtime `.env` lookup (`PUBLIC_BASE_URL`) via helper in `kyc/views.py`.
-
-If links are wrong:
-1. Update `.env` `PUBLIC_BASE_URL`
-2. Restart Django server
-3. Generate/send a new link
-
-Note: old emails keep old URLs.
+Verification links remain backed by `VerificationLink` records and `/verify/start/<token>/`.
+If an external tenant workspace generates links against the shared database, this Django app continues to resolve them.
 
 ## 12) Troubleshooting
 ### 12.1 `ERR_NGROK_3200`
@@ -270,7 +258,7 @@ source .venv/bin/activate
 ## 13) Security / Domain Rules
 - AI output is assistance only, never final approval.
 - Do not log sensitive PII/images/secrets in plaintext.
-- Keep tenant isolation strict (`request.user.tenant` scope for non-platform users).
+- Keep tenant linkage strict for customer/session/link operations.
 - Maintain auditability of review state transitions.
 
 ## 14) Daily Commands

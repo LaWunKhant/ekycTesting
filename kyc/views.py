@@ -1,6 +1,5 @@
 import logging
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth import authenticate, login
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -15,16 +14,10 @@ import subprocess
 import time
 from .models import VerificationSession, Tenant, Customer, VerificationLink
 from accounts.models import User
-from django import forms
 from django.utils import timezone as dj_timezone
-from datetime import timedelta
-from django.conf import settings as django_settings
-from django.core.mail import send_mail
 from django.utils.text import slugify
 from django.utils.crypto import get_random_string
 from urllib.parse import urlencode
-from django.core.paginator import Paginator
-from django.db.models import Q
 
 from .forms import TenantCreateForm, TenantUpdateForm
 from .services.card_physical_check import analyze_card_physicality
@@ -35,51 +28,9 @@ liveness_process = None
 logger = logging.getLogger(__name__)
 
 
-def _runtime_public_base_url():
-    # Read PUBLIC_BASE_URL from .env at runtime so changed ngrok URLs are picked up
-    # without relying on process-level exported env vars.
-    env_path = settings.BASE_DIR / ".env"
-    if env_path.exists():
-        try:
-            for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                if key.strip() != "PUBLIC_BASE_URL":
-                    continue
-                value = value.strip()
-                if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
-                ):
-                    value = value[1:-1]
-                return value.rstrip("/")
-        except Exception:
-            pass
-    return (os.getenv("PUBLIC_BASE_URL") or getattr(django_settings, "PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
-
-
 def _generate_temp_password(length=12):
     # Alphanumeric temp password compatible with Django 6 (make_random_password removed).
     return get_random_string(length)
-
-
-def _send_tenant_admin_temp_password_email(request, tenant, admin_user, temp_password):
-    login_url = request.build_absolute_uri(getattr(django_settings, "LOGIN_URL", "/accounts/login/"))
-    send_mail(
-        subject=f"Your {tenant.name} admin account",
-        message=(
-            f"Hello {admin_user.first_name or admin_user.email},\n\n"
-            f"Your tenant admin account for {tenant.name} has been created.\n\n"
-            f"Login URL: {login_url}\n"
-            f"Email: {admin_user.email}\n"
-            f"Temporary password: {temp_password}\n\n"
-            "Please log in and change your password after signing in."
-        ),
-        from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[admin_user.email],
-        fail_silently=False,
-    )
 
 
 def index(request):
@@ -115,7 +66,6 @@ def platform_dashboard(request):
     ).order_by("-created_at")[:50]
     users = User.objects.select_related("tenant").order_by("email")[:200]
     create_form = TenantCreateForm()
-    created_admin_password = None
     create_error = None
     create_success = None
 
@@ -124,8 +74,6 @@ def platform_dashboard(request):
         if create_form.is_valid():
             name = create_form.cleaned_data["name"]
             slug = slugify(name)
-            admin_email = create_form.cleaned_data["admin_email"]
-            admin_name = create_form.cleaned_data["admin_name"]
             plan = create_form.cleaned_data.get("plan") or None
             is_active = bool(create_form.cleaned_data.get("is_active"))
 
@@ -140,26 +88,9 @@ def platform_dashboard(request):
                     suspended_at=None if is_active else dj_timezone.now(),
                     suspended_reason=None if is_active else "Created inactive",
                 )
-
-                password = _generate_temp_password()
-                admin_user = User.objects.create_user(
-                    email=admin_email,
-                    password=password,
-                    role="owner",
-                    tenant=tenant,
-                    is_staff=True,
+                create_success = (
+                    "Tenant created. Use the external tenant workspace to manage tenant staff and verification links."
                 )
-                admin_user.first_name = admin_name
-                admin_user.save(update_fields=["first_name"])
-                try:
-                    _send_tenant_admin_temp_password_email(request, tenant, admin_user, password)
-                    create_success = f"Tenant created. Temporary password emailed to {admin_email}."
-                except Exception as exc:
-                    logger.exception("Failed to send tenant admin email for tenant=%s email=%s", tenant.slug, admin_email)
-                    created_admin_password = password
-                    create_error = "Tenant created, but email could not be sent. Share the temporary password shown below manually."
-                    if django_settings.DEBUG:
-                        create_error = f"{create_error} ({exc})"
         else:
             create_error = "Please correct the form errors."
 
@@ -174,7 +105,6 @@ def platform_dashboard(request):
         "create_form": create_form,
         "create_error": create_error,
         "create_success": create_success,
-        "created_admin_password": created_admin_password,
     }
     return render(request, "kyc/platform_dashboard.html", context)
 
@@ -316,258 +246,6 @@ def admin_user_reset_password(request, user_id):
     return redirect("admin_users")
 
 
-def _clear_impersonation(request):
-    request.session.pop("impersonator_id", None)
-    request.session.pop("impersonated_at", None)
-
-
-def _impersonation_context(request):
-    impersonator_id = request.session.get("impersonator_id")
-    started_at = request.session.get("impersonated_at")
-    if not impersonator_id:
-        return {"is_impersonating": False}
-
-    if started_at and (dj_timezone.now().timestamp() - float(started_at)) > 3600:
-        _clear_impersonation(request)
-        return {"is_impersonating": False}
-
-    try:
-        impersonator = User.objects.get(id=impersonator_id)
-    except User.DoesNotExist:
-        _clear_impersonation(request)
-        return {"is_impersonating": False}
-
-    return {
-        "is_impersonating": True,
-        "impersonator": impersonator,
-    }
-
-
-@login_required
-def admin_impersonate(request, tenant_id):
-    if not _require_user_type(request.user, {"super_admin"}):
-        return _role_denied()
-    if request.method != "POST":
-        return redirect("platform_dashboard")
-
-    password = request.POST.get("password") or ""
-    if not authenticate(request, username=request.user.email, password=password):
-        return redirect("platform_dashboard")
-
-    tenant = get_object_or_404(Tenant, uuid=tenant_id)
-    target = User.objects.filter(tenant=tenant, role="owner", is_active=True).first()
-    if target is None:
-        target = User.objects.filter(tenant=tenant, role="admin", is_active=True).first()
-    if target is None:
-        target = User.objects.filter(tenant=tenant, is_active=True).first()
-    if target is None:
-        return redirect("platform_dashboard")
-
-    request.session["impersonator_id"] = request.user.id
-    request.session["impersonated_at"] = dj_timezone.now().timestamp()
-    request.session.set_expiry(3600)
-    login(request, target)
-    return redirect("tenant_dashboard", tenant_slug=tenant.slug)
-
-
-@login_required
-def admin_stop_impersonation(request):
-    impersonator_id = request.session.get("impersonator_id")
-    if not impersonator_id:
-        return redirect("platform_dashboard")
-    try:
-        impersonator = User.objects.get(id=impersonator_id)
-    except User.DoesNotExist:
-        _clear_impersonation(request)
-        return redirect("platform_dashboard")
-
-    _clear_impersonation(request)
-    login(request, impersonator)
-    return redirect("platform_dashboard")
-
-
-@login_required
-def tenant_dashboard(request, tenant_slug):
-    if not _require_user_type(request.user, {"owner", "admin", "staff"}):
-        return _role_denied()
-    if not request.user.tenant:
-        return HttpResponseForbidden("No tenant assigned")
-    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
-        return HttpResponseForbidden("Tenant is inactive")
-    if tenant_slug != request.user.tenant.slug:
-        return HttpResponseForbidden("Access denied for tenant")
-    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
-        return HttpResponseForbidden("Tenant is inactive")
-
-    tenant = request.user.tenant
-    latest_link = None
-
-    if request.method == "POST" and request.POST.get("action") == "create_customer":
-        customer_form = CustomerCreateForm(request.POST)
-        if customer_form.is_valid():
-            customer = Customer.objects.create(
-                tenant=tenant,
-                full_name=customer_form.cleaned_data["full_name"],
-                email=customer_form.cleaned_data["email"] or None,
-                phone=customer_form.cleaned_data["phone"] or None,
-                external_ref=customer_form.cleaned_data["external_ref"] or None,
-            )
-            expires_at = dj_timezone.now() + timedelta(days=2)
-            latest_link = VerificationLink.objects.create(
-                tenant=tenant,
-                customer=customer,
-                expires_at=expires_at,
-            )
-            if customer.email:
-                link_url = ""
-                public_base = _runtime_public_base_url()
-                if public_base:
-                    link_url = f"{public_base}/verify/start/{latest_link.token}/"
-                else:
-                    link_url = f"{request.scheme}://{request.get_host()}/verify/start/{latest_link.token}/"
-
-                send_mail(
-                    subject="Your KYC Verification",
-                    message=(
-                        f"Hello {customer.full_name},\n\n"
-                        f"Please complete your verification using this link:\n{link_url}\n\n"
-                        "This link expires in 48 hours."
-                    ),
-                    from_email=getattr(django_settings, "DEFAULT_FROM_EMAIL", None),
-                    recipient_list=[customer.email],
-                    fail_silently=True,
-                )
-    else:
-        customer_form = CustomerCreateForm()
-
-    context = {
-        "tenant": tenant,
-        "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
-        "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
-        "customer_form": customer_form,
-        "latest_link": latest_link,
-        "public_base_url": _runtime_public_base_url(),
-        "media_url": settings.MEDIA_URL,
-        **_impersonation_context(request),
-    }
-    return render(request, "kyc/tenant_dashboard.html", context)
-
-
-def _tenant_sessions_panel_context(tenant, request):
-    search_query = (request.GET.get("q") or "").strip()
-    review_status_filter = (request.GET.get("review_status") or "").strip()
-
-    sessions_qs = VerificationSession.objects.select_related("customer").filter(tenant=tenant)
-    if review_status_filter in {"pending", "approved", "rejected", "needs_info"}:
-        sessions_qs = sessions_qs.filter(review_status=review_status_filter)
-    if search_query:
-        sessions_qs = sessions_qs.filter(
-            Q(customer__full_name__icontains=search_query) |
-            Q(customer__email__icontains=search_query)
-        )
-    sessions_qs = sessions_qs.order_by("-created_at")
-
-    paginator = Paginator(sessions_qs, 10)
-    page_obj = paginator.get_page(request.GET.get("page"))
-
-    query_params = request.GET.copy()
-    if "page" in query_params:
-        query_params.pop("page")
-    if "partial" in query_params:
-        query_params.pop("partial")
-
-    return {
-        "tenant": tenant,
-        "sessions": page_obj.object_list,
-        "page_obj": page_obj,
-        "search_query": search_query,
-        "review_status_filter": review_status_filter,
-        "query_string_without_page": query_params.urlencode(),
-    }
-
-
-@login_required
-def tenant_sessions(request, tenant_slug):
-    if not _require_user_type(request.user, {"owner", "admin", "staff"}):
-        return _role_denied()
-    if not request.user.tenant:
-        return HttpResponseForbidden("No tenant assigned")
-    if request.user.tenant.deleted_at or not request.user.tenant.is_active:
-        return HttpResponseForbidden("Tenant is inactive")
-    if tenant_slug != request.user.tenant.slug:
-        return HttpResponseForbidden("Access denied for tenant")
-
-    tenant = request.user.tenant
-    context = {
-        **_tenant_sessions_panel_context(tenant, request),
-        "session_count": VerificationSession.objects.filter(tenant=tenant).count(),
-        "pending_reviews": VerificationSession.objects.filter(tenant=tenant, review_status="pending").count(),
-        **_impersonation_context(request),
-    }
-    if request.GET.get("partial") == "sessions" or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return render(request, "kyc/_tenant_sessions_panel.html", context)
-    return render(request, "kyc/tenant_sessions.html", context)
-
-
-def tenant_dashboard_legacy(request):
-    if not request.user.is_authenticated:
-        return redirect("login")
-    if request.user.is_platform_admin():
-        return redirect("platform_dashboard")
-    if request.user.tenant:
-        return redirect("tenant_dashboard", tenant_slug=request.user.tenant.slug)
-    return HttpResponseForbidden("No tenant assigned")
-
-
-class StaffCreateForm(forms.Form):
-    email = forms.EmailField()
-    role = forms.ChoiceField(choices=[("owner", "Owner"), ("admin", "Admin"), ("staff", "Staff")])
-    password = forms.CharField(widget=forms.PasswordInput)
-
-
-class CustomerCreateForm(forms.Form):
-    full_name = forms.CharField(max_length=255)
-    email = forms.EmailField(required=False)
-    phone = forms.CharField(required=False)
-    external_ref = forms.CharField(required=False)
-
-
-@login_required
-def tenant_team(request):
-    if not _require_user_type(request.user, {"owner", "admin"}):
-        return _role_denied()
-    if not request.user.tenant:
-        return HttpResponseForbidden("No tenant assigned")
-
-    tenant = request.user.tenant
-    staff_qs = User.objects.filter(tenant=tenant).order_by("role", "email")
-
-    if request.method == "POST":
-        form = StaffCreateForm(request.POST)
-        if form.is_valid():
-            role = form.cleaned_data["role"]
-            if role == "owner" and request.user.role != "owner":
-                return HttpResponseForbidden("Only owners can create other owners.")
-            User.objects.create_user(
-                email=form.cleaned_data["email"],
-                password=form.cleaned_data["password"],
-                role=role,
-                tenant=tenant,
-                is_staff=True,
-            )
-            return redirect("tenant_team")
-    else:
-        form = StaffCreateForm()
-
-    context = {
-        "tenant": tenant,
-        "staff": staff_qs,
-        "form": form,
-        **_impersonation_context(request),
-    }
-    return render(request, "kyc/tenant_team.html", context)
-
-
 @login_required
 def customer_start(request):
     if request.method == "POST":
@@ -669,17 +347,12 @@ def review_sessions(request):
     status = request.GET.get("status")
     review_status = request.GET.get("review_status")
 
-    if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
+    if not _require_user_type(request.user, {"super_admin"}):
         return _role_denied()
 
     qs = VerificationSession.objects.select_related("tenant", "reviewed_by", "customer").order_by("-created_at")
 
-    user_tenant = _get_user_tenant(request.user)
-    if not request.user.is_superuser:
-        if user_tenant is None:
-            return HttpResponseForbidden("No tenant membership")
-        qs = qs.filter(tenant=user_tenant)
-    elif tenant_slug:
+    if tenant_slug:
         qs = qs.filter(tenant__slug=tenant_slug)
 
     if status:
@@ -692,9 +365,6 @@ def review_sessions(request):
         "tenant_slug": tenant_slug or "",
         "status": status or "",
         "review_status": review_status or "",
-        "is_superuser": request.user.is_superuser,
-        "user_tenant": user_tenant,
-        **_impersonation_context(request),
     }
     return render(request, "kyc/admin_sessions.html", context)
 
@@ -705,15 +375,8 @@ def review_session_detail(request, session_id):
         VerificationSession.objects.select_related("tenant", "reviewed_by", "customer"), id=session_id
     )
 
-    if not _require_user_type(request.user, {"super_admin", "owner", "admin", "staff"}):
+    if not _require_user_type(request.user, {"super_admin"}):
         return _role_denied()
-
-    user_tenant = _get_user_tenant(request.user)
-    if not request.user.is_superuser:
-        if user_tenant is None:
-            return HttpResponseForbidden("No tenant membership")
-        if session.tenant_id != user_tenant.id:
-            return HttpResponseForbidden("Access denied for tenant")
 
     if request.method == "POST":
         session.review_status = request.POST.get("review_status", session.review_status)
@@ -730,12 +393,8 @@ def review_session_detail(request, session_id):
         "back_url": _media_url(session.document_back_url or session.back_image),
         "thickness_url": _media_url(session.thickness_card or ((session.tilt_frames or [None])[-1] if session.tilt_frames else None)),
         "selfie_url": _media_url(session.selfie_url or session.selfie_image),
-        **_impersonation_context(request),
     }
-    if request.user.is_superuser:
-        context["back_link"] = redirect("review_sessions").url
-    else:
-        context["back_link"] = redirect("tenant_sessions", tenant_slug=request.user.tenant.slug).url
+    context["back_link"] = redirect("review_sessions").url
     return render(request, "kyc/admin_session_detail.html", context)
 
 

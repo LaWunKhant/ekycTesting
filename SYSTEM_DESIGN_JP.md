@@ -1,13 +1,14 @@
 # MoonKYC システム設計書（日本語版）
 
 ## 1. 概要
-本システムは、Django を基盤としたマルチテナント対応の eKYC（本人確認）プラットフォームである。  
-テナント企業ごとに顧客の本人確認セッションを発行し、書類撮影・なりすまし防止（Liveness）・顔照合・OCR 支援を経て、最終的に人手審査で承認判定を行う。
+本システムは、Django を基盤とした eKYC（本人確認）プラットフォームの審査・検証バックエンドである。  
+テナント情報を保持しつつ、顧客の本人確認セッションを処理し、書類撮影・なりすまし防止（Liveness）・顔照合・OCR 支援を経て、最終的に人手審査で承認判定を行う。
 
 ## 2. 背景
 - 金融/決済/会員基盤における本人確認の厳格化が求められている。
 - 自動化のみでは誤判定リスクがあるため、AI は補助に留め、最終判定を審査担当者が行う運用が必要である。
 - テナント分離（企業単位のデータ隔離）と監査可能性（いつ誰が何を判断したか）が必須である。
+- テナント向けダッシュボード/メンバー管理 UI は Django では提供せず、外部システムで扱う前提である。
 
 ## 3. 目的
 | 項目 | 目的 |
@@ -36,8 +37,8 @@
 | 機能カテゴリ | 機能名 | 概要 | 主担当モジュール |
 |---|---|---|---|
 | 認証 | ログイン/ログアウト/パスワード変更 | ユーザー認証とセッション管理 | `accounts` |
-| テナント管理 | ダッシュボード/メンバー管理 | テナント単位の運用管理 | `kyc/views.py` |
-| 顧客導線 | 検証リンク発行 | 顧客向け本人確認開始 URL を発行 | `VerificationLink`, `tenant_dashboard` |
+| テナント管理 | テナントレコード管理 | テナント識別子・状態を管理 | `Tenant`, `kyc/views.py` |
+| 顧客導線 | 検証リンク解決 | 顧客向け本人確認開始 URL を解決 | `VerificationLink`, `verify_link` |
 | セッション管理 | 開始/状態参照/提出 | 本人確認セッション API を提供 | `start_session`, `session_status`, `submit_session` |
 | 撮影 | 書類表裏/セルフィー/傾き | 画像取得と保存 | `capture_image`, `capture_document` |
 | Liveness | 開始/結果保存/キャンセル | なりすまし防止判定 | `start_liveness`, `save_liveness_result` |
@@ -49,17 +50,13 @@
 | 画面ID | 画面名 | パス | 主な利用者 | 主な機能 |
 |---|---|---|---|---|
 | SCR-ADM-01 | プラットフォーム管理ダッシュボード | `/admin/dashboard/` | super_admin | 全体状況、テナント管理 |
-| SCR-TNT-01 | テナントダッシュボード | `/<tenant_slug>/dashboard/` | owner/admin/staff | 顧客作成、検証リンク発行 |
-| SCR-TNT-02 | テナントセッション一覧 | `/<tenant_slug>/sessions/` | owner/admin/staff | セッション一覧、状態確認 |
-| SCR-RVW-01 | 審査一覧 | `/review/` | super_admin/tenant reviewer | 審査対象検索、詳細遷移 |
-| SCR-RVW-02 | 審査詳細 | `/review/<session_id>/` | super_admin/tenant reviewer | 画像確認、`review_status` 更新 |
+| SCR-RVW-01 | 審査一覧 | `/review/` | super_admin | 審査対象検索、詳細遷移 |
+| SCR-RVW-02 | 審査詳細 | `/review/<session_id>/` | super_admin | 画像確認、`review_status` 更新 |
 | SCR-CUS-01 | 顧客本人確認開始 | `/verify/start/<token>/` | customer | 本人確認フロー開始 |
 | SCR-CUS-02 | 顧客本人確認画面 | `/verify/` | customer | 入力、撮影、Liveness、提出 |
 
 ### 6.1 画面遷移補足
-- 審査詳細の「Back to list」は、  
-  - super_admin: 審査一覧へ遷移  
-  - テナントユーザー: テナントセッション一覧へ遷移
+- 審査詳細の「Back to list」は審査一覧 (`/review/`) へ遷移する。
 
 ## 7. API設計
 ### 7.1 主要API一覧
@@ -110,8 +107,8 @@
 
 ## 9. 処理フロー
 ### 9.1 顧客本人確認フロー
-1. テナントユーザーが顧客作成・検証リンク発行。  
-2. 顧客がリンクから本人確認画面を開始。  
+1. 外部システムまたは管理者運用で顧客/検証リンクを準備する。  
+2. 顧客がリンクまたは `tenant_slug + customer_id` 付き URL から本人確認画面を開始する。  
 3. セッション開始 (`/session/start`)。  
 4. 顧客情報入力・書類表裏撮影・Liveness・セルフィー撮影。  
 5. 提出 (`/session/submit`)。  
@@ -130,7 +127,7 @@
 ### 10.1 セキュリティ要件
 | 要件 | 内容 |
 |---|---|
-| テナント分離 | 非 super_admin は `request.user.tenant` スコープ必須 |
+| テナント分離 | 顧客・セッション・リンクは tenant 紐付けを必須とする |
 | 最終判定の統制 | AI は補助のみ。`review_status` は手動更新を原則とする |
 | 機微情報保護 | PII/秘密情報の平文ログ出力を禁止 |
 | 監査性 | 判定履歴・AI補助情報を追跡可能な形で保存 |

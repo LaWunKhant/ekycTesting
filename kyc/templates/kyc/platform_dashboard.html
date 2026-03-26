@@ -99,7 +99,7 @@
                 <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900/60 dark:shadow-slate-950/40">
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold">Create New Tenant</h2>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Admins receive a temporary password by email</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Tenant staff and link issuance are handled outside this Django app</span>
                     </div>
 
                     {% if create_error %}
@@ -112,26 +112,12 @@
                             {{ create_success }}
                         </div>
                     {% endif %}
-                    {% if created_admin_password %}
-                        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-900/30 dark:text-emerald-200">
-                            Admin temporary password: <strong>{{ created_admin_password }}</strong>
-                        </div>
-                    {% endif %}
-
                     <form method="post" class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="create_tenant" />
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Company name</label>
                             <input name="name" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-600 dark:text-slate-400">Admin email</label>
-                            <input name="admin_email" type="email" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-600 dark:text-slate-400">Admin name</label>
-                            <input name="admin_name" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
                         </div>
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Plan</label>
@@ -142,7 +128,7 @@
                                 <option value="enterprise">Enterprise</option>
                             </select>
                         </div>
-                        <div class="flex items-center gap-3 pt-6 md:pt-8">
+                        <div class="flex items-center gap-3 pt-6">
                             <input id="is_active" name="is_active" type="checkbox" checked class="h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950" />
                             <label for="is_active" class="text-sm text-slate-700 dark:text-slate-300">Active tenant</label>
                         </div>
@@ -214,11 +200,6 @@
                                     <form method="post" action="{% url 'admin_tenant_delete' t.uuid %}" class="inline" onsubmit="return confirm('Soft delete this tenant?');">
                                         {% csrf_token %}
                                         <button type="submit" class="text-xs text-red-700 hover:text-red-600 dark:text-red-200 dark:hover:text-red-100">Delete</button>
-                                    </form>
-                                    <form method="post" action="{% url 'admin_impersonate' t.uuid %}" class="inline-flex items-center gap-2">
-                                        {% csrf_token %}
-                                        <input name="password" type="password" placeholder="Confirm password" class="w-32 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200" />
-                                        <button type="submit" class="text-xs text-emerald-700 hover:text-emerald-600 dark:text-emerald-200 dark:hover:text-emerald-100">Login as</button>
                                     </form>
                                 </div>
                             </td>

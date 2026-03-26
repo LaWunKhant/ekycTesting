@@ -4,6 +4,8 @@
 - Stack: Django project (`manage.py`, `myproject/settings.py`) with MySQL only.
 - Local DB file artifacts are not used.
 - eKYC flow includes manual review, DeepFace matching, and asynchronous Mistral OCR assist.
+- This repo no longer provides a tenant-facing dashboard; Django login is for super admins only.
+- Tenant records still matter for customer/session/link routing and isolation.
 
 ## What To Check First (Before Edits)
 - Check repo state: `git status --short`.
@@ -29,7 +31,7 @@
 ## eKYC Domain Rules
 - Treat review state transitions as sensitive and auditable.
 - Never silently overwrite review outcomes (`pending`, `approved`, `rejected`, `needs_info`).
-- Keep tenant isolation strict (`request.user.tenant`) unless platform admin path explicitly allows cross-tenant access.
+- Keep tenant linkage strict for customer/session/link operations even though tenant users do not log into this repo.
 - Validate ownership/tenant linkage before any image/session update.
 - Avoid logging sensitive PII or secrets.
 
@@ -49,7 +51,7 @@
 - For password changes, use `PasswordChangeForm` + `update_session_auth_hash`.
 
 ## UI/Template Design Rules
-- Follow existing Tailwind patterns from platform/tenant pages.
+- Follow existing Tailwind patterns from platform and customer verification pages.
 - Preserve responsive behavior (mobile single-column, desktop multi-column).
 - Keep action messages clear and operationally useful.
 - For review images, preserve full-size inspectability (modal/new-tab access).

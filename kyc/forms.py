@@ -4,8 +4,6 @@ from django.utils.text import slugify
 
 class TenantCreateForm(forms.Form):
     name = forms.CharField(max_length=255, label="Company name")
-    admin_email = forms.EmailField(label="Admin email")
-    admin_name = forms.CharField(max_length=255, label="Admin name")
     plan = forms.ChoiceField(
         choices=[("", "Select plan"), ("free", "Free"), ("basic", "Basic"), ("enterprise", "Enterprise")],
         required=False,
