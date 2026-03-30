@@ -7,6 +7,8 @@ const page = usePage();
 const { appearance } = useAppearance();
 
 const isLightTheme = computed(() => appearance.value === 'light');
+const isDarkTheme = computed(() => appearance.value === 'dark');
+const isSystemTheme = computed(() => appearance.value === 'system');
 
 const items = [
     { title: 'Profile', href: '/settings/profile' },
@@ -18,17 +20,41 @@ const isCurrentRoute = (href: string) => page.url === href;
 </script>
 
 <template>
-    <div class="relative mx-auto w-full max-w-7xl px-4 py-6 md:px-6">
+    <div
+        class="relative mx-auto w-full max-w-7xl px-4 py-6 md:px-6"
+        :class="isLightTheme ? 'text-slate-950' : 'text-slate-100'"
+    >
+        <div v-if="isDarkTheme" class="pointer-events-none absolute inset-x-0 top-0 h-80">
+            <div class="absolute left-8 top-0 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl" />
+            <div class="absolute right-12 top-12 h-44 w-44 rounded-full bg-slate-500/10 blur-3xl" />
+        </div>
+        <div v-if="isSystemTheme" class="pointer-events-none absolute inset-x-0 top-0 h-80">
+            <div class="absolute left-0 top-0 h-44 w-44 rounded-full bg-cyan-400/8 blur-3xl" />
+            <div class="absolute right-10 top-16 h-52 w-52 rounded-full bg-slate-400/10 blur-3xl" />
+            <div class="absolute left-1/3 top-24 h-32 w-32 rounded-full bg-sky-300/6 blur-3xl" />
+        </div>
         <div class="flex flex-col gap-8 md:gap-10 lg:flex-row lg:gap-12">
             <aside class="w-full max-w-xl lg:w-48">
                 <div
-                    class="rounded-[24px] p-4 md:p-5"
+                    class="relative overflow-hidden rounded-[28px] p-4 md:p-5"
                     :class="
                         isLightTheme
                             ? 'border border-slate-200 bg-white shadow-sm'
-                            : 'border border-slate-800/80 bg-[#141b31]/70 shadow-[0_18px_40px_rgba(2,6,23,0.22)]'
+                            : isDarkTheme
+                              ? 'border border-slate-800/80 bg-[#10182b]/78 shadow-[0_24px_50px_rgba(2,6,23,0.35)]'
+                              : 'border border-slate-800/80 bg-[linear-gradient(180deg,rgba(10,22,35,0.88),rgba(4,11,20,0.96))] shadow-[0_24px_50px_rgba(2,6,23,0.32)]'
                     "
                 >
+                    <div
+                        class="pointer-events-none absolute inset-x-0 top-0 h-24"
+                        :class="
+                            isLightTheme
+                                ? 'bg-gradient-to-r from-cyan-50 via-white to-slate-100'
+                                : isDarkTheme
+                                  ? 'bg-gradient-to-r from-indigo-500/8 via-transparent to-slate-200/5'
+                                  : 'bg-gradient-to-r from-cyan-300/8 via-slate-200/5 to-transparent'
+                        "
+                    />
                     <div class="px-2 pb-3">
                         <div class="text-xs font-semibold uppercase tracking-[0.24em]" :class="isLightTheme ? 'text-slate-500' : 'text-slate-400'">
                             Settings
@@ -48,10 +74,14 @@ const isCurrentRoute = (href: string) => page.url === href;
                                 isCurrentRoute(item.href)
                                     ? isLightTheme
                                         ? 'border-cyan-200 bg-cyan-50 text-cyan-700'
-                                        : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200'
+                                        : isDarkTheme
+                                          ? 'border-indigo-400/35 bg-indigo-400/10 text-indigo-100'
+                                          : 'border-slate-600/80 bg-slate-800 text-slate-100'
                                     : isLightTheme
                                       ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                      : 'border-slate-700 bg-slate-900/70 text-slate-200 hover:border-slate-600 hover:bg-slate-800'
+                                      : isDarkTheme
+                                        ? 'border-slate-700 bg-slate-900/70 text-slate-200 hover:border-slate-600 hover:bg-slate-800'
+                                        : 'border-slate-800 bg-slate-950/50 text-slate-200 hover:border-slate-700 hover:bg-slate-900/80'
                             "
                         >
                             <span>{{ item.title }}</span>
@@ -66,7 +96,9 @@ const isCurrentRoute = (href: string) => page.url === href;
                             :class="
                                 isLightTheme
                                     ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    : 'border-slate-700 bg-slate-900/70 text-slate-200 hover:border-slate-600 hover:bg-slate-800'
+                                    : isDarkTheme
+                                      ? 'border-slate-700 bg-slate-900/70 text-slate-200 hover:border-slate-600 hover:bg-slate-800'
+                                      : 'border-slate-800 bg-slate-950/50 text-slate-100 hover:border-slate-700 hover:bg-slate-900/80'
                             "
                         >
                             Back to Dashboard
@@ -75,15 +107,27 @@ const isCurrentRoute = (href: string) => page.url === href;
                 </div>
             </aside>
 
-            <div class="min-w-0 flex-1 md:max-w-2xl">
+            <div class="min-w-0 flex-1 lg:max-w-4xl">
                 <section
-                    class="rounded-[24px] p-6 md:p-8"
+                    class="relative overflow-hidden rounded-[28px] p-6 md:p-8"
                     :class="
                         isLightTheme
                             ? 'border border-slate-200 bg-white shadow-sm'
-                            : 'border border-slate-800/80 bg-[#141b31]/75 shadow-[0_18px_40px_rgba(2,6,23,0.22)]'
+                            : isDarkTheme
+                              ? 'border border-slate-800/80 bg-[linear-gradient(180deg,rgba(17,24,39,0.88),rgba(10,15,28,0.96))] shadow-[0_24px_50px_rgba(2,6,23,0.34)]'
+                              : 'border border-slate-800/80 bg-[linear-gradient(180deg,rgba(10,22,35,0.88),rgba(4,11,20,0.96))] shadow-[0_24px_50px_rgba(2,6,23,0.32)]'
                     "
                 >
+                    <div
+                        class="pointer-events-none absolute inset-x-0 top-0 h-28"
+                        :class="
+                            isLightTheme
+                                ? 'bg-gradient-to-r from-cyan-50 via-white to-slate-100'
+                                : isDarkTheme
+                                  ? 'bg-gradient-to-r from-indigo-400/8 via-transparent to-slate-200/5'
+                                  : 'bg-gradient-to-r from-cyan-300/8 via-slate-200/5 to-transparent'
+                        "
+                    />
                     <div class="space-y-10">
                         <slot />
                     </div>

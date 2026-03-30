@@ -138,6 +138,11 @@ Available flows:
 
 Tenant dashboard access is behind Laravel `auth` middleware.
 
+Appearance behavior:
+- Default workspace theme is the navy/dark dashboard experience.
+- Users can still switch between `light`, `dark`, and `system` from `/settings/appearance`.
+- `system` follows the device color preference instead of forcing the cyan-accent variant.
+
 ## 7) Route Map
 ### 7.1 Tenant Workspace
 - `/dashboard`

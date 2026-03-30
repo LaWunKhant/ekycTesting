@@ -2,7 +2,10 @@ import { onMounted, ref } from 'vue';
 
 export type Appearance = 'light' | 'dark' | 'system';
 
-const appearance = ref<Appearance>('system');
+const DEFAULT_APPEARANCE: Appearance = 'dark';
+const appearance = ref<Appearance>(DEFAULT_APPEARANCE);
+
+const prefersDarkMode = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 const applyAppearanceClass = (value: Appearance) => {
     document.documentElement.classList.remove('appearance-light', 'appearance-dark', 'appearance-system');
@@ -12,7 +15,9 @@ const applyAppearanceClass = (value: Appearance) => {
 
 export function updateTheme(value: Appearance) {
     appearance.value = value;
-    document.documentElement.classList.toggle('dark', value !== 'light');
+
+    const shouldUseDarkPalette = value === 'dark' || (value === 'system' && prefersDarkMode());
+    document.documentElement.classList.toggle('dark', shouldUseDarkPalette);
     applyAppearanceClass(value);
 }
 
@@ -20,12 +25,12 @@ const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 const handleSystemThemeChange = () => {
     const currentAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(currentAppearance || 'system');
+    updateTheme(currentAppearance || DEFAULT_APPEARANCE);
 };
 
 export function initializeTheme() {
     const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(savedAppearance || 'system');
+    updateTheme(savedAppearance || DEFAULT_APPEARANCE);
     mediaQuery.addEventListener('change', handleSystemThemeChange);
 }
 
@@ -37,6 +42,8 @@ export function useAppearance() {
 
         if (savedAppearance) {
             appearance.value = savedAppearance;
+        } else {
+            appearance.value = DEFAULT_APPEARANCE;
         }
     });
 

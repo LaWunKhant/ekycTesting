@@ -105,8 +105,8 @@ defineProps<{
             :class="isLightTheme
                 ? 'bg-gradient-to-br from-slate-100 via-white to-slate-100 text-slate-950'
                 : isSystemTheme
-                    ? 'bg-gradient-to-br from-slate-950 via-[#0f172a] to-slate-950 text-white'
-                    : 'bg-[#05070f] text-white'"
+                    ? 'bg-gradient-to-br from-[#07141f] via-[#091826] to-[#050b14] text-slate-50'
+                    : 'bg-gradient-to-br from-[#050814] via-[#08101f] to-[#04070f] text-slate-50'"
         >
             <div v-if="isSystemTheme" class="pointer-events-none absolute inset-0">
                 <div class="absolute -left-16 -top-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
@@ -127,16 +127,16 @@ defineProps<{
                         {{ workspace.name }}
                     </div>
                     <h1 class="mt-4 text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.04em] md:text-[3.2rem]">{{ workspace.tenantName }} Dashboard</h1>
-                    <p class="mt-2.5 max-w-xl text-[15px]" :class="isLightTheme ? 'text-slate-600' : 'text-slate-400'">{{ workspace.subtitle }}</p>
+                    <p class="mt-2.5 max-w-xl text-[15px]" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">{{ workspace.subtitle }}</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3 lg:justify-end">
                     <a
                         href="/team"
                         class="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium backdrop-blur transition"
-                        :class="isLightTheme
-                            ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                            : 'border border-slate-700/80 bg-slate-900/70 text-slate-100 hover:border-slate-500 hover:bg-slate-800'"
+                            :class="isLightTheme
+                                ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                                : 'border border-slate-700/80 bg-slate-900/75 text-slate-100 hover:border-slate-500 hover:bg-slate-800'"
                     >
                         Manage Team
                     </a>
@@ -153,31 +153,31 @@ defineProps<{
                             class="inline-flex shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2.5 text-sm backdrop-blur transition"
                             :class="isLightTheme
                                 ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                                : 'border border-slate-700/80 bg-slate-900/70 text-slate-200 hover:border-slate-500 hover:bg-slate-800'"
+                                : 'border border-slate-700/80 bg-slate-900/75 text-slate-100 hover:border-slate-500 hover:bg-slate-800'"
                             @click="toggleAccountMenu"
                         >
                             <span class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold" :class="isLightTheme ? 'bg-slate-200 text-slate-700' : 'bg-slate-700 text-slate-100'">
                                 {{ accountInitials }}
                             </span>
                             <span class="max-w-[9rem] truncate">{{ accountName }}</span>
-                            <ChevronDown class="h-4 w-4 text-slate-400 transition" :class="{ 'rotate-180': accountMenuOpen }" />
+                            <ChevronDown class="h-4 w-4 text-slate-300 transition" :class="{ 'rotate-180': accountMenuOpen }" />
                         </button>
 
                         <div
                             v-if="accountMenuOpen"
                             class="absolute right-0 top-[calc(100%+12px)] z-20 w-[320px] rounded-[18px] p-3 shadow-[0_24px_50px_rgba(2,6,23,0.4)]"
-                            :class="isLightTheme ? 'border border-slate-200 bg-white text-slate-900' : 'border border-slate-700 bg-[#141b31] text-white'"
+                            :class="isLightTheme ? 'border border-slate-200 bg-white text-slate-900' : 'border border-slate-700 bg-[#101829] text-white'"
                         >
-                            <div class="rounded-2xl px-4 py-3" :class="isLightTheme ? 'border border-slate-200 bg-slate-50' : 'border border-slate-700 bg-slate-800/60'">
+                            <div class="rounded-2xl px-4 py-3" :class="isLightTheme ? 'border border-slate-200 bg-slate-50' : 'border border-slate-700 bg-slate-800/70'">
                                 <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Signed in as</div>
                                 <div class="mt-2 text-sm font-semibold" :class="isLightTheme ? 'text-slate-900' : 'text-white'">{{ accountName }}</div>
-                                <div class="text-sm text-slate-400">{{ accountEmail }}</div>
+                                <div class="text-sm" :class="isLightTheme ? 'text-slate-500' : 'text-slate-300'">{{ accountEmail }}</div>
                             </div>
                             <div class="my-2 h-px" :class="isLightTheme ? 'bg-slate-200' : 'bg-slate-700'" />
                             <Link
                                 :href="route('profile.edit')"
                                 class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm outline-none"
-                                :class="isLightTheme ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-200 hover:bg-slate-800/70'"
+                                :class="isLightTheme ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-100 hover:bg-slate-800/80'"
                                 @click="closeAccountMenu"
                             >
                                 <span>Settings</span>
@@ -205,15 +205,15 @@ defineProps<{
                     v-for="stat in stats"
                     :key="stat.label"
                     class="rounded-[20px] p-5 shadow-[0_18px_40px_rgba(2,6,23,0.16)] backdrop-blur"
-                    :class="isLightTheme
-                        ? 'border border-slate-200 bg-gradient-to-br from-white to-slate-100/80'
-                        : 'border border-slate-800/80 bg-gradient-to-br from-slate-900/80 to-slate-950/90'"
+                        :class="isLightTheme
+                            ? 'border border-slate-200 bg-gradient-to-br from-white to-slate-100/80'
+                            : 'border border-slate-800/80 bg-gradient-to-br from-slate-900/88 to-slate-950/96'"
                 >
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <div class="text-[11px] font-medium uppercase tracking-[0.22em] text-slate-500">{{ stat.label }}</div>
                             <div class="mt-3 text-[3rem] leading-none font-semibold" :class="isLightTheme ? 'text-slate-950' : 'text-white'">{{ stat.value }}</div>
-                            <p class="mt-3 max-w-sm text-[13px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-500'">{{ stat.caption }}</p>
+                            <p class="mt-3 max-w-sm text-[13px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">{{ stat.caption }}</p>
                         </div>
                         <div
                             class="rounded-full px-3 py-1 text-[11px] font-medium"
@@ -230,7 +230,7 @@ defineProps<{
             <section class="grid gap-5 xl:grid-cols-[1.7fr_0.8fr]">
                 <article
                     class="rounded-[22px] p-5 shadow-[0_22px_46px_rgba(2,6,23,0.16)] backdrop-blur"
-                    :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/60'"
+                    :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/72'"
                 >
                     <div v-if="mailError" class="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
                         {{ mailError }}
@@ -241,56 +241,56 @@ defineProps<{
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <h2 class="text-[1.95rem] font-semibold tracking-[-0.03em]" :class="isLightTheme ? 'text-slate-950' : 'text-white'">{{ quickStart.title }}</h2>
-                            <p class="mt-2 max-w-2xl text-[14px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-400'">{{ quickStart.description }}</p>
+                            <p class="mt-2 max-w-2xl text-[14px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">{{ quickStart.description }}</p>
                         </div>
-                        <span class="rounded-full px-3 py-1 text-[11px] font-medium text-slate-400">
+                        <span class="rounded-full px-3 py-1 text-[11px] font-medium" :class="isLightTheme ? 'text-slate-400' : 'text-slate-300'">
                             Step 1 of 2
                         </span>
                     </div>
 
                     <form class="mt-5 grid gap-4 md:grid-cols-2" @submit.prevent="generateVerificationLink">
                         <label class="block">
-                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">Full Name</span>
+                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-200'">Full Name</span>
                             <input
                                 v-model="customerForm.full_name"
                                 type="text"
                                 class="mt-2 h-11 w-full rounded-[18px] px-4 py-3 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30"
                                 :class="isLightTheme
                                     ? 'border border-slate-200 bg-white text-slate-900'
-                                    : 'border border-slate-800 bg-slate-950/90 text-white'"
+                                    : 'border border-slate-700 bg-slate-950 text-white placeholder:text-slate-500'"
                             >
                         </label>
                         <label class="block">
-                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">Email</span>
+                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-200'">Email</span>
                             <input
                                 v-model="customerForm.email"
                                 type="email"
                                 class="mt-2 h-11 w-full rounded-[18px] px-4 py-3 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30"
                                 :class="isLightTheme
                                     ? 'border border-slate-200 bg-white text-slate-900'
-                                    : 'border border-slate-800 bg-slate-950/90 text-white'"
+                                    : 'border border-slate-700 bg-slate-950 text-white placeholder:text-slate-500'"
                             >
                         </label>
                         <label class="block">
-                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">Phone</span>
+                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-200'">Phone</span>
                             <input
                                 v-model="customerForm.phone"
                                 type="text"
                                 class="mt-2 h-11 w-full rounded-[18px] px-4 py-3 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30"
                                 :class="isLightTheme
                                     ? 'border border-slate-200 bg-white text-slate-900'
-                                    : 'border border-slate-800 bg-slate-950/90 text-white'"
+                                    : 'border border-slate-700 bg-slate-950 text-white placeholder:text-slate-500'"
                             >
                         </label>
                         <label class="block">
-                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">External Ref (optional)</span>
+                            <span class="text-[13px] font-medium" :class="isLightTheme ? 'text-slate-600' : 'text-slate-200'">External Ref (optional)</span>
                             <input
                                 v-model="customerForm.external_ref"
                                 type="text"
                                 class="mt-2 h-11 w-full rounded-[18px] px-4 py-3 text-sm outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30"
                                 :class="isLightTheme
                                     ? 'border border-slate-200 bg-white text-slate-900'
-                                    : 'border border-slate-800 bg-slate-950/90 text-white'"
+                                    : 'border border-slate-700 bg-slate-950 text-white placeholder:text-slate-500'"
                             >
                         </label>
 
@@ -312,18 +312,18 @@ defineProps<{
 
                 <article
                     class="rounded-[22px] p-5 shadow-[0_22px_46px_rgba(2,6,23,0.16)] backdrop-blur"
-                    :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/60'"
+                    :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/72'"
                 >
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <h2 class="text-[1.95rem] font-semibold tracking-[-0.03em]" :class="isLightTheme ? 'text-slate-950' : 'text-white'">Latest Verification Link</h2>
                         </div>
-                        <span class="rounded-full px-3 py-1 text-[11px] font-medium text-slate-400">
+                        <span class="rounded-full px-3 py-1 text-[11px] font-medium" :class="isLightTheme ? 'text-slate-400' : 'text-slate-300'">
                             Step 2 of 2
                         </span>
                     </div>
 
-                    <div class="mt-4 text-[14px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">
+                    <div class="mt-4 rounded-[18px] border px-4 py-3 text-[14px] leading-6 break-all" :class="isLightTheme ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-slate-800 bg-slate-950/60 text-slate-200'">
                         <template v-if="latestLink.url">
                             {{ latestLink.url }}
                         </template>
@@ -332,7 +332,7 @@ defineProps<{
                         </template>
                     </div>
 
-                    <div class="mt-5 rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/60'">
+                    <div class="mt-5 rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/70'">
                         <div class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Quick Actions</div>
                         <div class="mt-3 space-y-2.5">
                             <a
@@ -342,10 +342,10 @@ defineProps<{
                                 class="flex items-center justify-between rounded-[14px] px-4 py-2.5 text-[14px] font-medium transition"
                                 :class="isLightTheme
                                     ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                                    : 'border border-slate-800 bg-slate-900/80 text-slate-200 hover:border-slate-600 hover:bg-slate-800'"
+                                    : 'border border-slate-800 bg-slate-900/85 text-slate-100 hover:border-slate-600 hover:bg-slate-800'"
                             >
                                 <span>{{ action.label === 'Customer Sessions' ? 'Review pending sessions' : action.label === 'Team Management' ? 'Invite or manage team' : 'Change your password' }}</span>
-                                <span class="text-xs text-slate-400">Go</span>
+                                <span class="text-xs" :class="isLightTheme ? 'text-slate-400' : 'text-slate-300'">Go</span>
                             </a>
                         </div>
                     </div>
@@ -354,12 +354,12 @@ defineProps<{
 
             <section
                 class="rounded-[22px] p-5 shadow-[0_22px_46px_rgba(2,6,23,0.16)] backdrop-blur"
-                :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/60'"
+                :class="isLightTheme ? 'border border-slate-200 bg-white/90' : 'border border-slate-800/80 bg-slate-900/72'"
             >
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 class="text-[1.7rem] font-semibold tracking-[-0.03em]" :class="isLightTheme ? 'text-slate-950' : 'text-white'">Customer Sessions</h2>
-                        <p class="mt-2 max-w-3xl text-[14px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-400'">
+                        <p class="mt-2 max-w-3xl text-[14px] leading-6" :class="isLightTheme ? 'text-slate-600' : 'text-slate-300'">
                             The customer sessions page is where search, review-state filtering, and pagination should live once the tenant session data is wired in.
                         </p>
                     </div>
@@ -372,17 +372,17 @@ defineProps<{
                 </div>
 
                 <div class="mt-5 grid gap-3 md:grid-cols-3">
-                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/60'">
+                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/70'">
                         <div class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Search</div>
-                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-300'">Customer name or email</div>
+                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-200'">Customer name or email</div>
                     </div>
-                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/60'">
+                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/70'">
                         <div class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Filter</div>
-                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-300'">Pending, approved, rejected, needs info</div>
+                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-200'">Pending, approved, rejected, needs info</div>
                     </div>
-                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/60'">
+                    <div class="rounded-[18px] p-4" :class="isLightTheme ? 'border border-slate-200 bg-slate-50/80' : 'border border-slate-800 bg-slate-950/70'">
                         <div class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Pagination</div>
-                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-300'">Designed for long-running tenant queues</div>
+                        <div class="mt-2 text-[14px]" :class="isLightTheme ? 'text-slate-700' : 'text-slate-200'">Designed for long-running tenant queues</div>
                     </div>
                 </div>
             </section>
