@@ -20,7 +20,7 @@ Core apps:
 ## 2) Stack
 - Python 3.10+
 - Django
-- MySQL only
+- MySQL or Postgres
 - OpenCV + NumPy
 - DeepFace (face extraction/verification)
 - Mistral OCR API (asynchronous queue-based extraction)
@@ -70,6 +70,12 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 ```
 
+For Render Postgres you can instead set:
+```env
+DB_ENGINE=postgres
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+```
+
 ### 4.4 Migrate and run
 ```bash
 python manage.py migrate
@@ -86,13 +92,15 @@ PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
 ```
 
 ## 5) Environment Variables
-### 5.1 Database (MySQL only)
-- `DB_ENGINE` (must be `mysql`)
+### 5.1 Database
+- `DB_ENGINE` (`mysql` or `postgres`)
 - `DB_NAME`
 - `DB_USER`
 - `DB_PASSWORD`
 - `DB_HOST`
 - `DB_PORT`
+- `DATABASE_URL`
+- `DB_SSL_MODE`
 
 ### 5.2 Core app
 - `SECRET_KEY`
@@ -238,7 +246,7 @@ Use a Render `Web Service`, not a `Private Service` or `Background Worker`, beca
 
 Why Docker here:
 - DeepFace / TensorFlow / OpenCV are more reliable with a controlled Linux image than with Render's native Python runtime.
-- The project is MySQL-only, so the runtime also needs MySQL client libraries.
+- The project uses native database drivers, so the runtime includes both MySQL and Postgres support.
 
 Important limitation:
 - This app writes captured verification images to `MEDIA_ROOT`.
@@ -249,19 +257,15 @@ Important limitation:
 - Service type: `Web Service`
 - Runtime: `Docker`
 - Plan: `Starter` or higher
-- Region: `Virginia` (or the region nearest your MySQL server)
+- Region: `Virginia` (or the region nearest your Render Postgres database)
 - Health Check Path: `/healthz/`
 - Disk mount path: `/var/data/moonkyc/media`
 - Disk size: `5 GB` to start
 
 ### 12.2 Required environment variables on Render
 ```env
-DB_ENGINE=mysql
-DB_NAME=...
-DB_USER=...
-DB_PASSWORD=...
-DB_HOST=...
-DB_PORT=3306
+DB_ENGINE=postgres
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
 SECRET_KEY=...
 DEBUG=false
 PUBLIC_BASE_URL=https://<your-service>.onrender.com
@@ -281,6 +285,18 @@ WEB_CONCURRENCY=1
 GUNICORN_TIMEOUT=120
 ```
 
+If you prefer not to use `DATABASE_URL`, set the Postgres fields individually:
+```env
+DB_ENGINE=postgres
+DB_NAME=...
+DB_USER=...
+DB_PASSWORD=...
+DB_HOST=...
+DB_PORT=5432
+```
+
+Set `DB_SSL_MODE=require` only if you are connecting via Render's external Postgres URL or your provider requires TLS. For a Render web service in the same region and workspace, use the internal URL from the database's Connect menu whenever possible.
+
 ### 12.3 Render start behavior
 The container starts with [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonProject/bin/render-start.sh), which runs:
 1. `python manage.py migrate --noinput`
@@ -291,7 +307,7 @@ The container starts with [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonPro
 2. In Render, create a new `Web Service`.
 3. Select this repository.
 4. Let Render read [`render.yaml`](/Users/cipc-002/Herd/PythonProject/render.yaml) or configure the same values manually.
-5. Fill in the MySQL and secret environment variables.
+5. Fill in the Postgres and secret environment variables.
 6. Confirm the persistent disk mount path is `/var/data/moonkyc/media`.
 7. Deploy.
 

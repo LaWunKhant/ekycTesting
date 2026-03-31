@@ -1,6 +1,6 @@
 from pathlib import Path
 import os
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -49,6 +49,82 @@ def env_list(name, default=None):
     if value is None:
         return list(default or [])
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def build_database_settings():
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    db_engine = os.getenv("DB_ENGINE", "").strip().lower()
+
+    if database_url:
+        parsed = urlsplit(database_url)
+        scheme = parsed.scheme.lower()
+        if "+" in scheme:
+            scheme = scheme.split("+", 1)[0]
+
+        if not db_engine:
+            if scheme in {"postgres", "postgresql"}:
+                db_engine = "postgres"
+            elif scheme == "mysql":
+                db_engine = "mysql"
+
+        if db_engine in {"postgres", "postgresql"}:
+            engine_name = "django.db.backends.postgresql"
+            default_port = "5432"
+            options = {}
+            ssl_mode = os.getenv("DB_SSL_MODE", "").strip()
+            if ssl_mode:
+                options["sslmode"] = ssl_mode
+        elif db_engine == "mysql":
+            engine_name = "django.db.backends.mysql"
+            default_port = "3306"
+            options = {"charset": "utf8mb4"}
+        else:
+            raise ValueError("DB_ENGINE must be mysql or postgres when DATABASE_URL is set.")
+
+        return {
+            "ENGINE": engine_name,
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": str(parsed.port or default_port),
+            "OPTIONS": options,
+        }
+
+    if not db_engine:
+        db_engine = "mysql"
+
+    if db_engine in {"postgres", "postgresql"}:
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "ekyc"),
+            "USER": os.getenv("DB_USER", "postgres"),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "OPTIONS": {
+                **(
+                    {"sslmode": os.getenv("DB_SSL_MODE", "").strip()}
+                    if os.getenv("DB_SSL_MODE", "").strip()
+                    else {}
+                ),
+            },
+        }
+
+    if db_engine == "mysql":
+        return {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.getenv("DB_NAME", "ekyc"),
+            "USER": os.getenv("DB_USER", "root"),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DB_PORT", "3306"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+            },
+        }
+
+    raise ValueError("DB_ENGINE must be mysql or postgres.")
 
 
 # `PUBLIC_BASE_URL` and `EMAIL_*` must follow `.env` for reliable link/email behavior.
@@ -123,22 +199,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "myproject.wsgi.application"
 ASGI_APPLICATION = "myproject.asgi.application"
 
-DB_ENGINE = os.getenv("DB_ENGINE", "mysql").lower()
-if DB_ENGINE != "mysql":
-    raise ValueError("Only MySQL is supported. Set DB_ENGINE=mysql.")
-
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("DB_NAME", "ekyc"),
-        "USER": os.getenv("DB_USER", "root"),
-        "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DB_PORT", "3306"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-        },
-    }
+    "default": build_database_settings(),
 }
 
 AUTH_PASSWORD_VALIDATORS = [

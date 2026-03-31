@@ -14,7 +14,9 @@ services:
       sizeGB: 5
     envVars:
       - key: DB_ENGINE
-        value: mysql
+        value: postgres
+      - key: DATABASE_URL
+        sync: false
       - key: DEBUG
         value: "false"
       - key: SECURE_SSL_REDIRECT
@@ -44,7 +46,9 @@ services:
       - key: DB_HOST
         sync: false
       - key: DB_PORT
-        value: "3306"
+        value: "5432"
+      - key: DB_SSL_MODE
+        sync: false
       - key: MISTRAL_API_KEY
         sync: false
       - key: WEB_CONCURRENCY
