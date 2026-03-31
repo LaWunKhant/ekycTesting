@@ -283,6 +283,9 @@ Optional:
 MISTRAL_API_KEY=...
 WEB_CONCURRENCY=1
 GUNICORN_TIMEOUT=120
+ADMIN_EMAIL=owner@gmail.com
+ADMIN_PASSWORD=pass1234
+ADMIN_FIRST_NAME=Owner
 ```
 
 If you prefer not to use `DATABASE_URL`, set the Postgres fields individually:
@@ -300,7 +303,8 @@ Set `DB_SSL_MODE=require` only if you are connecting via Render's external Postg
 ### 12.3 Render start behavior
 The container starts with [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonProject/bin/render-start.sh), which runs:
 1. `python manage.py migrate --noinput`
-2. `gunicorn myproject.wsgi:application --bind 0.0.0.0:$PORT`
+2. `python manage.py create_admin --force` if `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set
+3. `gunicorn myproject.wsgi:application --bind 0.0.0.0:$PORT`
 
 ### 12.4 Deploy steps
 1. Push this repo to GitHub/GitLab.
