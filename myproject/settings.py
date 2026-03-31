@@ -44,6 +44,13 @@ def env_float(name, default=0.0):
         return float(default)
 
 
+def env_list(name, default=None):
+    value = os.getenv(name)
+    if value is None:
+        return list(default or [])
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 # `PUBLIC_BASE_URL` and `EMAIL_*` must follow `.env` for reliable link/email behavior.
 # This avoids stale exported shell values unexpectedly overriding SMTP configuration.
 load_dotenv_file(
@@ -64,8 +71,13 @@ load_dotenv_file(
 )
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
-DEBUG = True
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".ngrok-free.app"]
+DEBUG = env_bool("DEBUG", default=True)
+ALLOWED_HOSTS = env_list(
+    "ALLOWED_HOSTS",
+    default=["127.0.0.1", "localhost", ".ngrok-free.app"],
+)
+if not DEBUG and SECRET_KEY == "dev-secret-key-change-me":
+    raise ValueError("Set SECRET_KEY for non-debug deployments.")
 
 INSTALLED_APPS = [
     "accounts",
@@ -80,6 +92,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -159,9 +172,12 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "kyc" / "static",
 ]
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles")))
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
+SERVE_MEDIA_FILES = env_bool("SERVE_MEDIA_FILES", default=DEBUG)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -173,18 +189,29 @@ AUTH_USER_MODEL = "accounts.User"
 
 # Optional: set this to your ngrok URL for shareable links
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip()
+if PUBLIC_BASE_URL.startswith(("http://", "https://")):
+    parsed_public_url = urlsplit(PUBLIC_BASE_URL)
+    public_host = parsed_public_url.hostname
+    if public_host and public_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(public_host)
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.ngrok-free.app",
-]
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["https://*.ngrok-free.app"],
+)
 if PUBLIC_BASE_URL.startswith(("http://", "https://")):
     parsed_public_url = urlsplit(PUBLIC_BASE_URL)
     if parsed_public_url.scheme and parsed_public_url.netloc:
-        CSRF_TRUSTED_ORIGINS.append(f"{parsed_public_url.scheme}://{parsed_public_url.netloc}")
+        csrf_origin = f"{parsed_public_url.scheme}://{parsed_public_url.netloc}"
+        if csrf_origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(csrf_origin)
 
 # Helps Django understand HTTPS when running behind ngrok/reverse proxies.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 
 # Looking to send emails in production? Check out our Email API/SMTP product!
 EMAIL_BACKEND = os.getenv(

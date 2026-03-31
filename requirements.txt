@@ -1,10 +1,11 @@
-pip install opencv-python
-pip install face-recognition
-pip install pytesseract
-pip install Pillow
-pip install numpy
-brew install tesseract
-pip install git+https://github.com/ageitgey/face_recognition_models
-pip install setuptools
-pip install deepface
-pip install tf-keras
+Django>=4.2,<5.3
+gunicorn>=23,<24
+whitenoise>=6.8,<7
+mysqlclient>=2.2,<3
+numpy>=1.26,<2
+opencv-python-headless>=4.10,<5
+Pillow>=10,<12
+certifi>=2024.8.30
+deepface>=0.0.93,<1
+tensorflow-cpu>=2.18,<2.20
+tf-keras>=2.18,<3

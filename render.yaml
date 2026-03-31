@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: moonkyc
+    runtime: docker
+    plan: starter
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    dockerCommand: ./bin/render-start.sh
+    healthCheckPath: /healthz/
+    autoDeploy: true
+    disk:
+      name: media
+      mountPath: /var/data/moonkyc/media
+      sizeGB: 5
+    envVars:
+      - key: DB_ENGINE
+        value: mysql
+      - key: DEBUG
+        value: "false"
+      - key: SECURE_SSL_REDIRECT
+        value: "true"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: CSRF_COOKIE_SECURE
+        value: "true"
+      - key: SERVE_MEDIA_FILES
+        value: "true"
+      - key: MEDIA_ROOT
+        value: /var/data/moonkyc/media
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GUNICORN_TIMEOUT
+        value: "120"

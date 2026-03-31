@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
+from django.http import HttpResponse
 from django.middleware.csrf import get_token
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -7,6 +8,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from .forms import UnifiedLoginForm
+
+
+def health_check(request):
+    return HttpResponse("ok", content_type="text/plain")
 
 
 def _render_login(request, form, portal_title, portal_subtitle, invalid=False):

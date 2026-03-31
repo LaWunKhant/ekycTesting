@@ -3,11 +3,12 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
-from accounts.views import home_redirect
+from accounts.views import health_check, home_redirect
 from kyc import views as kyc_views
 
 urlpatterns = [
     path("i18n/", include("django.conf.urls.i18n")),
+    path("healthz/", health_check, name="health_check"),
     path("", home_redirect, name="home"),
     path("admin/dashboard/", kyc_views.platform_dashboard, name="platform_dashboard"),
     path("admin/tenants/<uuid:tenant_id>/", kyc_views.admin_tenant_detail, name="admin_tenant_detail"),
@@ -22,5 +23,5 @@ urlpatterns = [
     path("", include("kyc.urls")),
 ]
 
-if settings.DEBUG:
+if settings.SERVE_MEDIA_FILES:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
