@@ -117,19 +117,23 @@
                         <input type="hidden" name="action" value="create_tenant" />
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Company name</label>
-                            <input name="name" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
+                            <input name="name" value="{{ create_form.name.value|default:'' }}" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 dark:text-slate-400">Owner email</label>
+                            <input name="owner_email" type="email" value="{{ create_form.owner_email.value|default:'' }}" required class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
                         </div>
                         <div>
                             <label class="block text-xs text-slate-600 dark:text-slate-400">Plan</label>
                             <select name="plan" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-                                <option value="">Select plan</option>
-                                <option value="free">Free</option>
-                                <option value="basic">Basic</option>
-                                <option value="enterprise">Enterprise</option>
+                                <option value="" {% if not create_form.plan.value %}selected{% endif %}>Select plan</option>
+                                <option value="free" {% if create_form.plan.value == "free" %}selected{% endif %}>Free</option>
+                                <option value="basic" {% if create_form.plan.value == "basic" %}selected{% endif %}>Basic</option>
+                                <option value="enterprise" {% if create_form.plan.value == "enterprise" %}selected{% endif %}>Enterprise</option>
                             </select>
                         </div>
                         <div class="flex items-center gap-3 pt-6">
-                            <input id="is_active" name="is_active" type="checkbox" checked class="h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950" />
+                            <input id="is_active" name="is_active" type="checkbox" {% if create_form.is_active.value != False %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950" />
                             <label for="is_active" class="text-sm text-slate-700 dark:text-slate-300">Active tenant</label>
                         </div>
                         <div class="md:col-span-2">

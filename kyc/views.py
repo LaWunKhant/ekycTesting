@@ -1,9 +1,12 @@
 import logging
+from smtplib import SMTPException
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
+from django.db import transaction
 import json
 import os
 import cv2
@@ -31,6 +34,24 @@ logger = logging.getLogger(__name__)
 def _generate_temp_password(length=12):
     # Alphanumeric temp password compatible with Django 6 (make_random_password removed).
     return get_random_string(length)
+
+
+def _build_tenant_welcome_email(tenant, recipient_email, temp_password):
+    subject = f"MoonKYC tenant access for {tenant.name}"
+    message = "\n".join(
+        [
+            f"Hello {tenant.name},",
+            "",
+            "Your tenant workspace access has been prepared.",
+            f"Tenant name: {tenant.name}",
+            f"Tenant slug: {tenant.slug}",
+            f"Login email: {recipient_email}",
+            f"Temporary password: {temp_password}",
+            "",
+            "Please change your password after your first sign-in.",
+        ]
+    )
+    return subject, message
 
 
 def index(request):
@@ -73,24 +94,56 @@ def platform_dashboard(request):
         create_form = TenantCreateForm(request.POST)
         if create_form.is_valid():
             name = create_form.cleaned_data["name"]
+            owner_email = create_form.cleaned_data["owner_email"].strip().lower()
             slug = slugify(name)
             plan = create_form.cleaned_data.get("plan") or None
             is_active = bool(create_form.cleaned_data.get("is_active"))
 
             if Tenant.objects.filter(slug=slug).exists():
                 create_error = "Tenant slug already exists."
+            elif User.objects.filter(email__iexact=owner_email).exists():
+                create_error = "Owner email already exists."
+            elif not settings.EMAIL_HOST:
+                create_error = "Tenant created email is not configured. Set EMAIL_HOST and related SMTP settings."
             else:
-                tenant = Tenant.objects.create(
-                    name=name,
-                    slug=slug,
-                    plan=plan,
-                    is_active=is_active,
-                    suspended_at=None if is_active else dj_timezone.now(),
-                    suspended_reason=None if is_active else "Created inactive",
-                )
-                create_success = (
-                    "Tenant created. Use the external tenant workspace to manage tenant staff and verification links."
-                )
+                temp_password = _generate_temp_password()
+                try:
+                    with transaction.atomic():
+                        tenant = Tenant.objects.create(
+                            name=name,
+                            slug=slug,
+                            plan=plan,
+                            is_active=is_active,
+                            suspended_at=None if is_active else dj_timezone.now(),
+                            suspended_reason=None if is_active else "Created inactive",
+                        )
+                        User.objects.create_user(
+                            email=owner_email,
+                            password=temp_password,
+                            role="owner",
+                            tenant=tenant,
+                            company_id=tenant.slug,
+                            is_active=is_active,
+                        )
+                        subject, message = _build_tenant_welcome_email(
+                            tenant=tenant,
+                            recipient_email=owner_email,
+                            temp_password=temp_password,
+                        )
+                        send_mail(
+                            subject=subject,
+                            message=message,
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[owner_email],
+                            fail_silently=False,
+                        )
+                except (SMTPException, OSError, ValueError) as exc:
+                    logger.exception("Failed to create tenant welcome email for %s", owner_email)
+                    create_error = f"Tenant creation email failed: {exc}"
+                else:
+                    create_success = (
+                        f"Tenant created and welcome email sent to {owner_email}."
+                    )
         else:
             create_error = "Please correct the form errors."
 

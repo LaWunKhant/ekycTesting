@@ -147,6 +147,8 @@ PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
 Only super admin users can sign in to this Django app. Tenant-facing dashboard flows were removed from this repo and are handled externally.
 Password changes use Django `PasswordChangeForm` and keep session active via `update_session_auth_hash`.
 
+Tenant creation from `/admin/dashboard/` now requires an owner email address. The flow creates a tenant-scoped owner user, generates a temporary password, and sends the credentials through the configured SMTP backend. If SMTP delivery fails, the tenant and owner user are rolled back and the dashboard shows an operational error instead of silently succeeding.
+
 ## 7) Route Map
 ### 7.1 Platform Admin
 - `/admin/dashboard/`
