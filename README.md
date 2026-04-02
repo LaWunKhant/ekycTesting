@@ -20,7 +20,7 @@ Core apps:
 ## 2) Stack
 - Python 3.10+
 - Django
-- MySQL or Postgres
+- MySQL
 - OpenCV + NumPy
 - DeepFace (face extraction/verification)
 - Mistral OCR API (asynchronous queue-based extraction)
@@ -42,65 +42,83 @@ Core apps:
 - `kyc/static/js/main.js`
 
 ## 4) Local Setup
-### 4.1 Create virtualenv
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 4.2 Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4.3 Configure `.env`
+### 4.1 Configure `.env`
 ```bash
 cp .env.example .env
 ```
 
 Note: `.env` values for `PUBLIC_BASE_URL` and `EMAIL_*` are loaded with priority over stale shell exports to keep links/SMTP behavior deterministic.
 
-Required database fields:
+Required database fields for the local Docker setup:
 ```env
 DB_ENGINE=mysql
 DB_NAME=ekyc
 DB_USER=root
-DB_PASSWORD=
-DB_HOST=127.0.0.1
+DB_PASSWORD=rootpass123
+DB_HOST=moonkyc-mysql
 DB_PORT=3306
 ```
 
-For Render Postgres you can instead set:
+For local phone camera testing, point the public URL to your HTTPS tunnel:
 ```env
-DB_ENGINE=postgres
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
+ALLOWED_HOSTS=127.0.0.1,localhost,192.168.1.33,<your-ngrok>.ngrok-free.app
+CSRF_TRUSTED_ORIGINS=https://<your-ngrok>.ngrok-free.app
 ```
 
-### 4.4 Migrate and run
+### 4.2 Build the Docker image
 ```bash
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
+docker build -t moonkyc:latest .
 ```
 
-### 4.5 Optional ngrok for mobile testing
+### 4.3 Start local Docker services
+Create the shared Docker network once:
 ```bash
-ngrok http 8000
+docker network create moonkyc-net
+```
+
+Start MySQL for Django:
+```bash
+docker run -d \
+  --name moonkyc-mysql \
+  --network moonkyc-net \
+  -e MYSQL_ROOT_PASSWORD=rootpass123 \
+  -e MYSQL_DATABASE=ekyc \
+  -p 3307:3306 \
+  mysql:8.0
+```
+
+Start Django:
+```bash
+docker run --name pythonproject-app \
+  --network moonkyc-net \
+  --env-file .env \
+  -p 10000:10000 \
+  moonkyc:latest
+```
+
+### 4.4 Optional ngrok for mobile testing
+```bash
+ngrok http 10000
 ```
 Set latest URL in `.env`:
 ```env
 PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
 ```
 
+### 4.5 Local access
+- Mac browser: `http://127.0.0.1:10000/accounts/login/`
+- Phone browser: `https://<your-ngrok>.ngrok-free.app/accounts/login/`
+- TablePlus Docker MySQL: host `127.0.0.1`, port `3307`, user `root`, password `rootpass123`, database `ekyc`
+
 ## 5) Environment Variables
 ### 5.1 Database
-- `DB_ENGINE` (`mysql` or `postgres`)
+- `DB_ENGINE` (`mysql` only)
 - `DB_NAME`
 - `DB_USER`
 - `DB_PASSWORD`
 - `DB_HOST`
 - `DB_PORT`
-- `DATABASE_URL`
-- `DB_SSL_MODE`
 
 ### 5.2 Core app
 - `SECRET_KEY`
@@ -146,6 +164,7 @@ PUBLIC_BASE_URL=https://<your-ngrok>.ngrok-free.app
 
 Only super admin users can sign in to this Django app. Tenant-facing dashboard flows were removed from this repo and are handled externally.
 Password changes use Django `PasswordChangeForm` and keep session active via `update_session_auth_hash`.
+The tenant-facing Laravel workspace now lives in a separate repository and should connect to this service through shared MySQL data plus `PUBLIC_BASE_URL`.
 
 Tenant creation from `/admin/dashboard/` now requires an owner email address. The flow creates a tenant-scoped owner user, generates a temporary password, and sends the credentials through the configured SMTP backend. If SMTP delivery fails, the tenant and owner user are rolled back and the dashboard shows an operational error instead of silently succeeding.
 
@@ -240,6 +259,7 @@ Verification links remain backed by `VerificationLink` records and `/verify/star
 If an external tenant workspace generates links against the shared database, this Django app continues to resolve them.
 
 Set `PUBLIC_BASE_URL` to the public HTTPS origin that customers should open (ngrok, Render, or your custom domain).
+For local phone testing, prefer ngrok over trying to terminate TLS directly in the Django container.
 
 ## 12) Render Deployment
 This repo includes a Docker-based Render setup in [`render.yaml`](/Users/cipc-002/Herd/PythonProject/render.yaml), [`Dockerfile`](/Users/cipc-002/Herd/PythonProject/Dockerfile), and [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonProject/bin/render-start.sh).
@@ -248,7 +268,7 @@ Use a Render `Web Service`, not a `Private Service` or `Background Worker`, beca
 
 Why Docker here:
 - DeepFace / TensorFlow / OpenCV are more reliable with a controlled Linux image than with Render's native Python runtime.
-- The project uses native database drivers, so the runtime includes both MySQL and Postgres support.
+- The project uses native database drivers, so the runtime includes the MySQL client libraries needed by Django.
 
 Important limitation:
 - This app writes captured verification images to `MEDIA_ROOT`.
@@ -259,15 +279,19 @@ Important limitation:
 - Service type: `Web Service`
 - Runtime: `Docker`
 - Plan: `Starter` or higher
-- Region: `Virginia` (or the region nearest your Render Postgres database)
+- Region: `Virginia` (or the region nearest your MySQL database)
 - Health Check Path: `/healthz/`
 - Disk mount path: `/var/data/moonkyc/media`
 - Disk size: `5 GB` to start
 
 ### 12.2 Required environment variables on Render
 ```env
-DB_ENGINE=postgres
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+DB_ENGINE=mysql
+DB_NAME=...
+DB_USER=...
+DB_PASSWORD=...
+DB_HOST=...
+DB_PORT=3306
 SECRET_KEY=...
 DEBUG=false
 PUBLIC_BASE_URL=https://<your-service>.onrender.com
@@ -290,17 +314,7 @@ ADMIN_PASSWORD=pass1234
 ADMIN_FIRST_NAME=Owner
 ```
 
-If you prefer not to use `DATABASE_URL`, set the Postgres fields individually:
-```env
-DB_ENGINE=postgres
-DB_NAME=...
-DB_USER=...
-DB_PASSWORD=...
-DB_HOST=...
-DB_PORT=5432
-```
-
-Set `DB_SSL_MODE=require` only if you are connecting via Render's external Postgres URL or your provider requires TLS. For a Render web service in the same region and workspace, use the internal URL from the database's Connect menu whenever possible.
+Use MySQL-backed environment values consistently across local and deployed environments. This repo should not be switched back to Postgres.
 
 ### 12.3 Render start behavior
 The container starts with [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonProject/bin/render-start.sh), which runs:
@@ -313,7 +327,7 @@ The container starts with [`bin/render-start.sh`](/Users/cipc-002/Herd/PythonPro
 2. In Render, create a new `Web Service`.
 3. Select this repository.
 4. Let Render read [`render.yaml`](/Users/cipc-002/Herd/PythonProject/render.yaml) or configure the same values manually.
-5. Fill in the Postgres and secret environment variables.
+5. Fill in the MySQL and secret environment variables.
 6. Confirm the persistent disk mount path is `/var/data/moonkyc/media`.
 7. Deploy.
 
@@ -368,9 +382,8 @@ source .venv/bin/activate
 
 ## 14) Daily Commands
 ```bash
-source .venv/bin/activate
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
-# separate terminal
-ngrok http 8000
+docker start moonkyc-mysql
+docker start pythonproject-app
+# separate terminal when phone camera testing is needed
+ngrok http 10000
 ```

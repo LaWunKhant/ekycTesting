@@ -97,6 +97,11 @@ OCR/AI:
 - `MISTRAL_MAX_RETRIES`
 - `MISTRAL_QUEUE_MAX_ATTEMPTS`
 
+Local Docker defaults:
+- Django app container -> `DB_HOST=moonkyc-mysql`, `DB_PORT=3306`
+- Host tools / TablePlus -> Docker MySQL exposed at `127.0.0.1:3307`
+- Phone camera testing -> use ngrok HTTPS in `PUBLIC_BASE_URL`
+
 ## 7) Fast Troubleshooting Matrix
 1. Symptom: verification emails are not arriving.
 Cause:
@@ -131,7 +136,7 @@ Checks:
 - check `updated_at`, `status`, `current_step`, and `document_data` progression
 
 ## 8) Daily Engineer Checklist
-1. Start services (`mysql`, Django app, optional ngrok).
+1. Start services (`moonkyc-mysql`, `pythonproject-app`, optional ngrok).
 2. Confirm `.env` values and MySQL connectivity.
 3. Create one test verification end-to-end.
 4. Validate review queue rendering and image inspectability.

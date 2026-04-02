@@ -2,10 +2,12 @@
 
 ## Project Context
 - Stack: Django project (`manage.py`, `myproject/settings.py`) with MySQL only.
+- Local runtime is expected to use Docker for Django and MySQL when testing this repo in isolation.
 - Local DB file artifacts are not used.
 - eKYC flow includes manual review, DeepFace matching, and asynchronous Mistral OCR assist.
 - This repo no longer provides a tenant-facing dashboard; Django login is for super admins only.
 - Tenant records still matter for customer/session/link routing and isolation.
+- The tenant-facing Laravel workspace now lives in a separate repository and should integrate through shared MySQL data plus `PUBLIC_BASE_URL`.
 
 ## What To Check First (Before Edits)
 - Check repo state: `git status --short`.
@@ -27,6 +29,9 @@
   - `DB_PASSWORD`
   - `DB_HOST`
   - `DB_PORT`
+- Local Docker defaults:
+  - Django container -> `DB_HOST=moonkyc-mysql`, `DB_PORT=3306`
+  - TablePlus / host tools -> MySQL exposed on `127.0.0.1:3307`
 
 ## eKYC Domain Rules
 - Treat review state transitions as sensitive and auditable.
@@ -61,6 +66,7 @@
 - Make targeted edits; avoid clobbering existing user changes.
 - If changing runtime behavior/config, update `.env.example` and `README.md` in the same change.
 - If changing public link behavior, explicitly verify `PUBLIC_BASE_URL` handling.
+- If mobile camera capture is in scope, document the ngrok HTTPS requirement rather than suggesting ad hoc local TLS inside the Django container.
 
 ## Common Follow-Up Fixes (With User Confirmation)
 - Tune OCR queue retry/backoff settings for quota constraints.
